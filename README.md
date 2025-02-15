@@ -19,7 +19,7 @@
 
 1. שכפל את המאגר:
 ```bash
-git clone [repository-url]
+git clone https://github.com/Slava12233/ecom_store_manager.git
 cd ecom_store_manager
 ```
 
@@ -41,14 +41,45 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+## הגדרת בוט טלגרם
+
+1. צור בוט חדש בטלגרם:
+   - פתח שיחה עם [@BotFather](https://t.me/BotFather)
+   - שלח את הפקודה `/newbot`
+   - עקוב אחר ההוראות לבחירת שם ומזהה לבוט
+   - העתק את טוקן הבוט שתקבל
+
+2. הוסף את טוקן הבוט לקובץ `.env`:
+```
+TELEGRAM_BOT_TOKEN="your-telegram-bot-token"
+```
+
 ## הפעלה
 
-הפעל את השרת:
+יש שתי דרכים להפעיל את המערכת:
+
+### 1. הפעלת שרת REST API:
 ```bash
 python src/main.py
 ```
-
 הגישה לממשק תהיה זמינה ב-`http://localhost:8000`
+
+### 2. הפעלת בוט טלגרם:
+```bash
+python src/bot.py
+```
+
+## שימוש בבוט
+
+1. התחל שיחה עם הבוט בטלגרם
+2. שלח `/start` לקבלת הודעת פתיחה
+3. שלח `/help` לקבלת רשימת הפקודות האפשריות
+
+דוגמאות לפקודות:
+- `תראה לי את המוצרים`
+- `הצג דוח מכירות`
+- `צור קופון של 20 אחוז`
+- `הוסף מוצר חדש בשם חולצה במחיר 99`
 
 ## פיתוח
 
