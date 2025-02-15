@@ -21,7 +21,7 @@ class Orchestrator:
         message_lower = user_message.lower()
         
         # Action requests - בדיקה ראשונה כי הן מכילות מילים שיכולות להתנגש עם בקשות מידע
-        if any(word in message_lower for word in ["הוסף", "צור", "יוצר", "עדכן", "שנה"]):
+        if any(word in message_lower for word in ["הוסף", "צור", "יוצר", "עדכן", "שנה", "מחק", "הסר"]):
             return self.action_agent.handle_message(user_message)
         
         # Information requests

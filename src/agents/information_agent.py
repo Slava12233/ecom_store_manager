@@ -13,7 +13,8 @@ class InformationAgent:
             url=str(settings.WC_STORE_URL),
             consumer_key=settings.WC_CONSUMER_KEY,
             consumer_secret=settings.WC_CONSUMER_SECRET.get_secret_value(),
-            version="wc/v3"
+            version="wc/v3",
+            verify=False  # Disable SSL verification for InstaWP
         )
 
     def get_products(self, page: int = 1, per_page: int = 5) -> str:
@@ -29,78 +30,78 @@ class InformationAgent:
             if response.status_code == 200:
                 products = response.json()
                 if not products:
-                    return "אין כרגע מוצרים בחנות."
+                    return "לא נמצאו מוצרים בחנות"
                 
-                answer = ["מוצרים בחנות:"]
-                for p in products:
-                    name = p.get("name", "ללא שם")
-                    price = p.get("price", "לא צוין")
-                    stock_status = p.get("stock_status", "לא ידוע")
-                    status_hebrew = {
-                        "instock": "במלאי",
-                        "outofstock": "אזל מהמלאי",
-                        "onbackorder": "בהזמנה מראש"
-                    }.get(stock_status, stock_status)
-                    
-                    answer.append(f"- {name}, מחיר: {price} ₪, סטטוס: {status_hebrew}")
-                return "\n".join(answer)
+                result = "המוצרים בחנות:\n\n"
+                for product in products:
+                    name = product.get("name", "")
+                    price = product.get("price", "")
+                    status = "במלאי" if product.get("in_stock", False) else "אזל מהמלאי"
+                    result += f"- {name}: {price} ש\"ח ({status})\n"
+                
+                return result
             else:
-                return f"שגיאה בשליפת מוצרים: {response.status_code}"
+                return f"שגיאה בקבלת מוצרים: {response.status_code}"
         except Exception as e:
-            return f"שגיאה בשליפת מוצרים: {str(e)}"
+            return f"שגיאה בקבלת מוצרים: {str(e)}"
+
+    def get_orders(self, page: int = 1, per_page: int = 5) -> str:
+        """
+        Fetch recent orders from WooCommerce.
+        
+        Args:
+            page: Page number to fetch
+            per_page: Number of orders per page
+        """
+        try:
+            response = self.wcapi.get("orders", params={"page": page, "per_page": per_page})
+            if response.status_code == 200:
+                orders = response.json()
+                if not orders:
+                    return "לא נמצאו הזמנות בחנות"
+                
+                result = "ההזמנות האחרונות:\n\n"
+                for order in orders:
+                    order_id = order.get("id", "")
+                    total = order.get("total", "")
+                    status = order.get("status", "")
+                    date = order.get("date_created", "").split("T")[0]  # Get just the date part
+                    result += f"- הזמנה #{order_id}: {total} ש\"ח ({status}) - {date}\n"
+                
+                return result
+            else:
+                return f"שגיאה בקבלת הזמנות: {response.status_code}"
+        except Exception as e:
+            return f"שגיאה בקבלת הזמנות: {str(e)}"
 
     def get_sales_report(self, period: str = "week") -> str:
         """
-        Fetch sales report from WooCommerce.
+        Get sales report for a specific period.
         
         Args:
-            period: Report period ('week', 'month', 'year')
+            period: The period to get report for ("week", "month", "year")
         """
         try:
             response = self.wcapi.get(f"reports/sales", params={"period": period})
             if response.status_code == 200:
-                data = response.json()
-                if not data or len(data) == 0:
-                    return (
-                        f"אין נתוני מכירות לתקופה: {period}\n"
-                        "זה תקין אם החנות חדשה או שלא היו מכירות בתקופה זו.\n"
-                        "המלצות:\n"
-                        "• לבדוק את מחירי המוצרים מול המתחרים\n"
-                        "• לשקול יצירת קופוני הנחה לקידום מכירות\n"
-                        "• לוודא שהמוצרים מוצגים היטב עם תמונות ותיאורים"
-                    )
+                report = response.json()
+                if not report:
+                    return f"לא נמצאו נתוני מכירות ל{period}"
                 
-                # WooCommerce מחזיר רשימה של דוחות, ניקח את הראשון
-                report = data[0] if isinstance(data, list) else data
+                total_sales = report[0].get("total_sales", 0)
+                total_orders = report[0].get("total_orders", 0)
+                average_sales = report[0].get("average_sales", 0)
                 
-                period_hebrew = {
-                    "week": "שבוע",
-                    "month": "חודש",
-                    "year": "שנה"
-                }.get(period, period)
+                result = f"דוח מכירות ל{period}:\n\n"
+                result += f"- סה\"כ מכירות: {total_sales} ש\"ח\n"
+                result += f"- מספר הזמנות: {total_orders}\n"
+                result += f"- ממוצע ליום: {average_sales} ש\"ח\n"
                 
-                total_sales = float(report.get("total_sales", "0"))
-                total_orders = int(report.get("total_orders", "0"))
-                total_items = int(report.get("total_items", "0"))
-                avg_order_value = total_sales / total_orders if total_orders > 0 else 0
-                items_per_order = total_items / total_orders if total_orders > 0 else 0
-
-                return (
-                    f"דוח מכירות ל{period_hebrew} האחרון:\n"
-                    f"• סה״כ מכירות: {total_sales:.2f} ₪\n"
-                    f"• מספר הזמנות: {total_orders}\n"
-                    f"• מספר פריטים: {total_items}\n"
-                    f"• ממוצע להזמנה: {avg_order_value:.2f} ₪\n"
-                    f"• פריטים להזמנה: {items_per_order:.1f}\n"
-                    "\nמדדי ביצוע:\n" +
-                    ("✅ מצוין" if total_sales > 10000 else
-                     "⚠️ בינוני" if total_sales > 1000 else
-                     "❌ נמוך")
-                )
+                return result
             else:
-                return f"שגיאה בשליפת דוח מכירות: {response.status_code}"
+                return f"שגיאה בקבלת דוח מכירות: {response.status_code}"
         except Exception as e:
-            return f"שגיאה בשליפת דוח מכירות: {str(e)}"
+            return f"שגיאה בקבלת דוח מכירות: {str(e)}"
 
     def get_coupons(self, page: int = 1, per_page: int = 10) -> str:
         """

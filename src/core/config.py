@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     WC_CONSUMER_KEY: str
     WC_CONSUMER_SECRET: SecretStr
 
+    # WordPress Settings
+    WP_USERNAME: str
+    WP_PASSWORD: SecretStr
+
     # OpenAI Settings
     OPENAI_API_KEY: SecretStr
 

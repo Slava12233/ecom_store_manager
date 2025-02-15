@@ -93,6 +93,17 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 - When importing from src directory, either remove 'src.' prefix or ensure __init__.py exists
 - Package names in check_dependencies.py should use pkg_resources instead of importlib for better detection
 
+## WordPress & WooCommerce Integration
+- WordPress Application Password must be exactly 24 characters long (including spaces)
+- Application Password format: XXXX XXXX XXXX XXXX XXXX XXXX (6 groups of 4 characters)
+- For media uploads, use WordPress API endpoint (/wp-json/wp/v2/media) instead of WooCommerce endpoint
+- Always verify user permissions before attempting media uploads
+- Use Basic Auth with WordPress username and Application Password for media operations
+- Implement proper error handling for 401 (Unauthorized) responses
+- Add detailed logging for debugging authentication issues
+- When uploading images, optimize them first (resize, compress) before sending to WordPress
+- Clean up temporary image files after successful upload
+
 ## Project Progress
 [X] Initial project setup
 - Created basic directory structure
@@ -100,40 +111,70 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 - Installed all required dependencies
 - Verified server runs successfully
 
-[ ] Core Configuration
-- Need to implement full configuration in core/config.py
+[X] Core Configuration
+- Implemented full configuration in core/config.py
 - Set up environment variables
+- Added proper error handling for missing configs
 
-[ ] Agent Development
-- Information Agent
-- Action Agent
-- Research Agent
+[X] Agent Development
+[X] Information Agent
+- Product listing
+- Order management
+- Sales reports
 
-[ ] WooCommerce Integration
-- API setup
-- Product management
-- Order handling
+[X] Action Agent
+- Product creation/update
+- Image management
+- Coupon generation
+
+[X] Research Agent
+- Market research
+- Competitor analysis
+
+[X] Telegram Integration
+- Bot setup
+- Basic commands
+- Image handling
+- Conversation flow
+
+[X] WooCommerce Integration
+[X] API setup
+[X] Product management
+[X] Media handling
+[ ] Advanced order handling
+[ ] Inventory management
 
 # Scratchpad
 
-## Current Task: Fixing Agent Issues
-[X] Fix message routing in Orchestrator
-  - Prioritize action requests before information requests
-  - Update keyword matching
-[X] Fix sales report handling in InformationAgent
-  - Handle list response from WooCommerce API
-  - Add more sales metrics
-[ ] Test fixes with real WooCommerce store
-[ ] Implement Research Agent functionality
+## Current Task: שיפור מערכת העלאת תמונות
+[X] תיקון בעיות הרשאה
+  - וידוא פורמט Application Password
+  - שיפור בדיקת הרשאות
+  - הוספת לוגים מפורטים
+
+[X] שיפור טיפול בתמונות
+  - אופטימיזציה לפני העלאה
+  - ניקוי קבצים זמניים
+  - טיפול בשגיאות
+
+[X] שיפור חווית משתמש
+  - הודעות ברורות יותר
+  - פידבק על התקדמות
+  - טיפול במקרי קצה
 
 ## Next Steps
-1. Test the fixes we just made
-2. Add error handling and retries for API calls
-3. Start implementing the Research Agent
-4. Add more sophisticated product search and filtering
+[ ] שיפורים נוספים
+  - הוספת תמיכה בגלריות תמונות
+  - שיפור ביצועים בהעלאת תמונות
+  - הוספת אפשרות לעריכת תמונות
+
+[ ] פיתוח יכולות נוספות
+  - ניהול מלאי מתקדם
+  - דוחות מכירות
+  - אינטגרציה עם מערכות נוספות
 
 ## Notes
-- WooCommerce API returns sales reports as a list
-- Need to handle API responses more carefully
-- Consider adding retry mechanism for failed API calls
-- Need to implement proper error messages in Hebrew
+- המערכת עובדת כעת בהצלחה עם WordPress
+- נדרש לשמור על הפרדה בין API של WordPress ו-WooCommerce
+- חשוב לשמור על לוגים מפורטים לדיבוג
+- לשקול הוספת מערכת קאשינג לשיפור ביצועים
