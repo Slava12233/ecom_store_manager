@@ -13,7 +13,7 @@ class Orchestrator:
         self.action_agent = ActionAgent()
         self.research_agent = ResearchAgent()
 
-    def handle_user_message(self, user_message: str) -> str:
+    async def handle_user_message(self, user_message: str) -> str:
         """
         Route the user message to appropriate agent based on content.
         Enhanced with better keyword matching and priority handling.
@@ -22,15 +22,15 @@ class Orchestrator:
         
         # Action requests - בדיקה ראשונה כי הן מכילות מילים שיכולות להתנגש עם בקשות מידע
         if any(word in message_lower for word in ["הוסף", "צור", "יוצר", "עדכן", "שנה", "מחק", "הסר"]):
-            return self.action_agent.handle_message(user_message)
+            return await self.action_agent.handle_message(user_message)
         
         # Information requests
         elif any(word in message_lower for word in ["תראה", "הצג", "כמה", "מוצרים", "דוח", "מכירות", "קופונים", "הנחות"]):
-            return self.info_agent.handle_message(user_message)
+            return await self.info_agent.handle_message(user_message)
         
         # Research requests
         elif any(word in message_lower for word in ["מתחרים", "מחקר", "שוק", "השוואה"]):
-            return self.research_agent.handle_message(user_message)
+            return await self.research_agent.handle_message(user_message)
         
         # Unknown intent
         else:

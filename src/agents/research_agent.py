@@ -55,7 +55,7 @@ class ResearchAgent:
             return "המלצות עסקיות:\n" + "\n".join(f"• {rec}" for rec in recommendations)
         return "אין המלצות זמינות לתחום זה"
 
-    def handle_message(self, user_message: str) -> str:
+    async def handle_message(self, user_message: str) -> str:
         """
         Handle user messages and route to appropriate research method.
         """
