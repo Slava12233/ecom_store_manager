@@ -1,0 +1,584 @@
+השלב הראשון (עוד לפני שנוגעים בקוד לוגיקה) הוא להקים את תשתית הפרויקט וסביבת הפיתוח בצורה מסודרת. כך תבטיח שהפרויקט יהיה "נקי" ומוכן להמשך הרחבות. הנה פירוט מלא:
+
+שלב 1: הקמת תשתית הפרויקט וסביבת הפיתוח
+צור תיקייה חדשה לפרויקט
+
+למשל:
+bash
+Copy
+Edit
+mkdir ecom_store_manager
+cd ecom_store_manager
+הגדרת קובץ requirements.txt
+
+רשום בו את הספריות שתצטרך (כפי שסיכמנו בתוכנית הפעולה). דוגמה בסיסית:
+text
+Copy
+Edit
+python-dotenv==1.0.1
+pydantic==1.10.7
+fastapi==0.95.2
+uvicorn==0.27.1
+
+requests==2.31.0
+woocommerce==3.0.0
+
+openai==0.27.6
+langchain==0.0.XXX
+
+sqlalchemy==2.0.10
+alembic==1.10.2
+אם תוסיף Celery, Redis, וכו' בהמשך, אפשר לעדכן.
+צור/עדכן קובץ .gitignore
+
+כדי לוודא שלא מעלים קבצים רגישים (כמו .env) או קבצי Cache. למשל:
+gitignore
+Copy
+Edit
+__pycache__/
+*.pyc
+.env
+venv/
+אם אתה משתמש ב־Cursor AI או IDE אחר, לעתים הוא מייצר קבצים מיוחדים – הוסף אותם ל־.gitignore.
+התקנת החבילות
+
+בטרמינל:
+bash
+Copy
+Edit
+pip install -r requirements.txt
+או אם אתה עובד ב־Cursor AI, תוכל לבצע זאת דרך ממשק החבילות (אם הוא תומך).
+צור קובץ .env
+
+זה המקום לסיסמאות ופרטי קונפיגורציה רגישים (לא ייכנס ל־git). דוגמה:
+ini
+Copy
+Edit
+WC_STORE_URL="https://example.com"
+WC_CONSUMER_KEY="ck_xxx"
+WC_CONSUMER_SECRET="cs_xxx"
+OPENAI_API_KEY="sk-xxxx"
+TELEGRAM_BOT_TOKEN="123456:ABC-foobar"
+בהמשך תוכל להוסיף שדות כגון DATABASE_URL, REDIS_URL וכו’.
+צור מבנה ראשוני של תיקיית src/
+
+למשל:
+bash
+Copy
+Edit
+src/
+  main.py
+  orchestrator.py
+  agents/
+    __init__.py
+    information_agent.py
+    action_agent.py
+    research_agent.py
+  core/
+    __init__.py
+    config.py
+    db.py      # אופציונלי
+  utils/
+    logger.py  # אופציונלי
+כאן אנחנו רק מכינים מקום, בלי להכניס יותר מדי לוגיקה עדיין.
+קבע מערכת בקרת גרסאות (Git) מקומית או ב-GitHub
+
+עשה git init, הוסף commit ראשון עם השלד.
+אם תרצה לשתף את הפרויקט או לעבוד בצוות, העלה ל־GitHub/GitLab ( לא לשכוח לשמור .env פרטי! ).
+(אופציונלי) הגדרת וירטואלית
+
+אם אתה משתמש ב־virtualenv או poetry וכד’, וודא שהכול מוגדר (Cursor AI לפעמים עושה זאת אוטומטית).
+מה הרווחת בשלב הזה?
+מבנה מסודר: יש תיקייה מרכזית, קובצי requirements, .env, וסקלטון של תיקיות וקבצים.
+ה־Orchestrator והסוכנים השונים מוכנים מבחינת קבצים (ריקים או עם מעט פיסות קוד), כך שבהמשך יהיה קל למלא אותם.
+המלצות להמשך אחרי שלב 1
+בדוק שהכל מותקן ומתפקד:
+הפעל python -c "import requests; print('OK')" וכד’ כדי לוודא שאין בעיות תלות.
+צור commit ל-Git: “Initialize project structure and requirements”.
+הכן את core/config.py לטעינת .env (עם Pydantic Settings) – אפשר גם לעשות זאת כשלב 2 (הוספת קונפיגורציה).
+ברגע שיש לך את התשתית הזו, תהיה מוכן לצלול לקוד הלוגי (סוכן מידע, סוכן פעולות, וכו’). זה בדיוק היסוד שחוזרים אליו אם פרויקט “זולג” – תמיד אפשר לראות מה המבנה הבסיסי ואיפה ממוקמים כל חלק.
+
+זהו השלב הראשון – אחרי שתשלים אותו בהצלחה, נעבור להקמת קבצי קונפיגורציה מפורטים, לכתיבת הסוכנים, ואז נעשה אינטגרציה עם WooCommerce.
+
+
+
+
+
+
+
+שלב 2: הגדרת קונפיגורציה (Config) וטעינת משתני סביבה
+2.1 יצירת קובץ config.py (או שם אחר) בתיקיית core/
+צור תיקייה/קובץ:
+
+בתוך src/core/, הוסף קובץ בשם config.py.
+התקן/אמת שיש לך Pydantic
+
+בקובץ requirements.txt ודא שקיים:
+text
+Copy
+Edit
+pydantic==1.10.7
+python-dotenv==1.0.1
+(כנראה כבר עשית בשלב 1, רק לוודא).
+כתוב את מחלקת ה-Settings. לדוגמה:
+
+python
+Copy
+Edit
+# src/core/config.py
+import os
+from pydantic import BaseSettings
+
+class Settings(BaseSettings):
+    # WooCommerce
+    wc_store_url: str
+    wc_consumer_key: str
+    wc_consumer_secret: str
+    
+    # LLM / OpenAI
+    openai_api_key: str = ""
+    
+    # Telegram bot token
+    telegram_bot_token: str = ""
+
+    # תוכל להוסיף עוד בהמשך (DB_URL, REDIS_URL וכו')
+
+    class Config:
+        env_file = ".env"
+
+# יצירת אובייקט של ההגדרות
+settings = Settings()
+הסבר:
+
+class Config: עם env_file = ".env" אומר ל-Pydantic לקרוא משתני סביבה מקובץ .env.
+כל שדה (wc_store_url, וכו’) ימופה אוטומטית למשתנה סביבה באותיות גדולות (WC_STORE_URL וכו’).
+ב-.env שלך (בשורש הפרויקט) כבר הגדרת כנראה:
+ini
+Copy
+Edit
+WC_STORE_URL="https://example.com"
+WC_CONSUMER_KEY="ck_xxx"
+WC_CONSUMER_SECRET="cs_xxx"
+OPENAI_API_KEY="sk-xxxx"
+TELEGRAM_BOT_TOKEN="123456:ABC-foobar"
+כעת settings = Settings() ייטען את הערכים האלה.
+2.2 שימוש בהגדרות במקומות אחרים
+עכשיו, בכל סוכן או בכל קובץ שרוצה לדעת את הכתובת של WooCommerce, פשוט:
+
+python
+Copy
+Edit
+# example usage in information_agent.py
+from core.config import settings
+
+wc_api_url = settings.wc_store_url
+print("URL of the store is", wc_api_url)
+למשל, בסוכן המידע (InformationAgent) או בסוכן הפעולות (ActionAgent) תשתמש כדי לאתחל את woocommerce.API:
+
+python
+Copy
+Edit
+from woocommerce import API
+from core.config import settings
+
+self.wcapi = API(
+    url=settings.wc_store_url,
+    consumer_key=settings.wc_consumer_key,
+    consumer_secret=settings.wc_consumer_secret,
+    version="wc/v3"
+)
+2.3 בדיקה שהכול נטען כראוי
+הוסף הדפסת Debug פשוטה בקובץ main.py:
+python
+Copy
+Edit
+# src/main.py
+from core.config import settings
+
+def main():
+    print("WC_STORE_URL is:", settings.wc_store_url)
+    print("OpenAI key is:", settings.openai_api_key)
+    # בהמשך נריץ את הסוכן או הבוט
+
+if __name__ == "__main__":
+    main()
+הרץ:
+bash
+Copy
+Edit
+python src/main.py
+ותראה שהערכים מתקבלים מתוך .env.
+2.4 המלצות לשלב הבא
+אם תרצה להגדיר ערכים ספציפיים עם ברירת מחדל, אפשר למשל:
+python
+Copy
+Edit
+max_products_fetch: int = 10
+debug_mode: bool = False
+אם תרצה שם משתנה שונה בקוד vs. .env, אפשר להגדיר בפרמטרים של Pydantic Field (למשל: Field(env="WC_URL")).
+שמור על מחלקת Settings זו כמקום יחיד שבו מנהלים את כל “מפתחות הקסם” של הפרויקט.
+סיכום שלב 2
+מטרה: להגדיר config.py ולהפעיל Pydantic Settings כך שהפרויקט יוכל באופן מסודר לגשת למשתני סביבה מה־.env.
+תוצר: מחלקת Settings וייבוא שלה בכל מקום שמצריך מידע כגון URL, מפתחות API, וכו'.
+לאחר השלמת שלב זה: יש לנו פרויקט עם תשתית קונפיג “נקייה”, אפשר לעבור לשלב 3 – הקמת השלד של הסוכן הראשי (Orchestrator) והסוכנים (Agents) השונים.
+ברגע שסיימת עם שלב 2, נוכל לכתוב skeleton ל־Orchestrator ולסוכנים, וכן להפנות לדברים כמו settings.wc_store_url במקום לכתוב ידנית.
+
+בהצלחה!
+
+
+
+
+
+שלב 3: בניית השלד (Skeleton) לסוכן הראשי ולסוכנים (Agents)
+3.1 הגדרת הקבצים והתיקיות
+נניח שבתיקייה src/agents/ יהיו שלושה קבצים עיקריים:
+
+information_agent.py – אחראי על שליפת מידע וקריאה ל-API (WooCommerce) לצורך דוחות, מוצרים, הזמנות וכו'.
+action_agent.py – מבצע פעולות כתיבה (הוספת מוצרים, עדכון מחיר, יצירת קופונים...).
+research_agent.py – עוסק במחקר חיצוני (למשל, מתחרים, חיפוש באינטרנט), אם תרצה בכך.
+ובתיקייה הראשית (src/) נצור:
+
+orchestrator.py – הסוכן הראשי ש"מנתב" את השאלה לסוכן המתאים.
+3.2 יצירת קבצי השלד
+3.2.1 information_agent.py
+python
+Copy
+Edit
+# src/agents/information_agent.py
+from woocommerce import API
+from core.config import settings
+
+class InformationAgent:
+    def __init__(self):
+        """אתחול של סוכן המידע (מאתחל חיבור ל-WooCommerce)."""
+        self.wcapi = API(
+            url=settings.wc_store_url,
+            consumer_key=settings.wc_consumer_key,
+            consumer_secret=settings.wc_consumer_secret,
+            version="wc/v3"
+        )
+
+    def handle_message(self, user_message: str) -> str:
+        """
+        שלב ראשוני: כרגע לא נעשה הרבה, רק נבדוק אם user_message
+        מכיל מילים רלוונטיות ונחזיר תשובה placeholder.
+        """
+        if "מוצרים" in user_message:
+            return "ברוכים הבאים לסוכן המידע: (בקרוב אציג מוצרים)"
+        elif "דוח" in user_message or "מכירות" in user_message:
+            return "מגיע מסוכן המידע: (בקרוב אציג דוחות מכירות)"
+        else:
+            return "סוכן המידע: לא זיהיתי בקשה לתצוגת מידע."
+
+    # בהמשך: נוסיף כאן פונקציות כמו get_products, get_sales_report, וכו'.
+3.2.2 action_agent.py
+python
+Copy
+Edit
+# src/agents/action_agent.py
+from woocommerce import API
+from core.config import settings
+
+class ActionAgent:
+    def __init__(self):
+        """סוכן פעולות - אחראי על כתיבה/יצירה/עדכון ב-WooCommerce."""
+        self.wcapi = API(
+            url=settings.wc_store_url,
+            consumer_key=settings.wc_consumer_key,
+            consumer_secret=settings.wc_consumer_secret,
+            version="wc/v3"
+        )
+
+    def handle_message(self, user_message: str) -> str:
+        """
+        כרגע: שלד בלבד. נזהה מילים מסוימות (למשל 'הוסף מוצר')
+        ונחזיר placeholder.
+        """
+        if "הוסף מוצר" in user_message:
+            return "סוכן הפעולות: (בקרוב אוסיף מוצר חדש)"
+        elif "צור קופון" in user_message:
+            return "סוכן הפעולות: (בקרוב אצור קופון חדש)"
+        else:
+            return "סוכן הפעולות: לא ברור איזו פעולה לבצע."
+3.2.3 research_agent.py (אופציונלי, לפי הצורך)
+python
+Copy
+Edit
+# src/agents/research_agent.py
+
+class ResearchAgent:
+    def __init__(self):
+        """סוכן מחקר - פונה לאינטרנט/מקורות חיצוניים"""
+
+    def handle_message(self, user_message: str) -> str:
+        if "מתחרים" in user_message or "מחקר" in user_message:
+            return "סוכן מחקר: (בקרוב אחפש מידע על מתחרים)"
+        else:
+            return "סוכן מחקר: לא זיהיתי בקשה למחקר חיצוני."
+3.3 orchestrator.py – הסוכן הראשי
+python
+Copy
+Edit
+# src/orchestrator.py
+from agents.information_agent import InformationAgent
+from agents.action_agent import ActionAgent
+from agents.research_agent import ResearchAgent
+
+class Orchestrator:
+    def __init__(self):
+        self.info_agent = InformationAgent()
+        self.action_agent = ActionAgent()
+        self.research_agent = ResearchAgent()
+
+    def handle_user_message(self, user_message: str) -> str:
+        """
+        לוגיקת ניתוב בסיסית:
+        - אם זה נשמע כמו בקשת מידע (דוח, מוצרים...), נעביר ל-info_agent
+        - אם זה בקשת פעולה (הוסף מוצר, צור קופון...), action_agent
+        - אם זה בקשת מחקר (מתחרים...), research_agent
+        - אחרת: עדיין לא ברור
+        """
+
+        # דוגמאות לזיהוי פשוט:
+        message_lower = user_message.lower()
+        if any(word in message_lower for word in ["מוצר", "דוח", "מכירות"]):
+            return self.info_agent.handle_message(user_message)
+        elif any(word in message_lower for word in ["הוסף", "צור קופון", "עדכן מחיר"]):
+            return self.action_agent.handle_message(user_message)
+        elif any(word in message_lower for word in ["מתחרים", "מחקר"]):
+            return self.research_agent.handle_message(user_message)
+        else:
+            return "סוכן ראשי (Orchestrator): לא ברור על מה תרצה לדבר."
+3.4 בדיקה ראשונית בקובץ main.py
+python
+Copy
+Edit
+# src/main.py
+from orchestrator import Orchestrator
+
+def main():
+    orchestrator = Orchestrator()
+
+    # נבצע כמה בדיקות:
+    test_messages = [
+        "תראה לי את המוצרים",
+        "איך אני יוצר קופון חדש?",
+        "תבדוק מחקר על מתחרים בתחום האופנה",
+        "משהו אחר..."
+    ]
+
+    for msg in test_messages:
+        print(f"\nUser: {msg}")
+        response = orchestrator.handle_user_message(msg)
+        print(f"Bot: {response}")
+
+if __name__ == "__main__":
+    main()
+כעת, הפעל:
+bash
+Copy
+Edit
+python src/main.py
+תראה בתגובה הודעות מהסוכנים: “ברוכים הבאים לסוכן המידע…”, “סוכן הפעולות…”, וכו’.
+זה סימן שהשלד עובד.
+3.5 מה השגנו בשלב זה?
+מבנה Skeleton לכל הסוכנים + הסוכן הראשי (Orchestrator).
+מתודה handle_message בכל סוכן, שמחזירה placeholder.
+orchestrator שמנתב לשם.
+בדיקה ראשונית ב־main.py.
+עדיין אין לוגיקה אמיתית (כמו שליפת מוצרים או יצירת קופון), אבל עכשיו המבנה קיים, וניתן להרחיב בהדרגה.
+
+3.6 נקודות להמשך
+זיהוי כוונה טוב יותר: אם תרצה, בהמשך נחליף את ה־if...in... ללוגיקה שמזהה כוונה בעזרת מודל שפה (LangChain / OpenAI).
+חיבור אמיתי ל־WooCommerce: בסוכן המידע והפעולות נוסיף פונקציות מתקדמות (get_products, create_product, וכו’).
+שילוב עם Telegram Bot: אם תרצה בוט, אפשר לקרוא ל־Orchestrator מתוך bot.py.
+הרחבת research_agent: לבצע קריאות API לחיפוש וכדומה.
+לאחר שלב 3, יש לנו שלד מתפקד – זהו הרגע שבו אפשר להוסיף פונקציות “אמיתיות” בסוכנים, להטמיע קריאות API, ולספק תשובות ממשיות למשתמש.
+
+
+
+
+
+
+
+שלב 4: הוספת לוגיקת קריאה/כתיבה אמיתית לסוכנים
+4.1 מימוש פונקציות קריאה בסוכן המידע
+ניקח לדוגמה את information_agent.py ונממש פונקציות כגון:
+
+get_products(): שליפת רשימת מוצרים
+get_sales_report(): דוח מכירות
+get_coupons(): שליפת קופונים
+4.1.1 get_products()
+python
+Copy
+Edit
+# information_agent.py
+def get_products(self, page: int = 1, per_page: int = 5) -> str:
+    """
+    שליפת מוצרים והחזרת פירוט טקסטואלי.
+    """
+    try:
+        response = self.wcapi.get("products", params={"page": page, "per_page": per_page})
+        if response.status_code == 200:
+            products = response.json()
+            if not products:
+                return "אין כרגע מוצרים."
+            
+            answer = ["מוצרים בחנות:"]
+            for p in products:
+                name = p.get("name")
+                price = p.get("price")
+                stock_status = p.get("stock_status")
+                answer.append(f"- {name}, מחיר: {price} ₪, סטטוס מלאי: {stock_status}")
+            return "\n".join(answer)
+        else:
+            return f"שגיאה בשליפת מוצרים: {response.status_code} {response.text}"
+    except Exception as e:
+        return f"שגיאה ב-get_products: {str(e)}"
+ואז בתוך handle_message, נבדוק אם המשתמש ביקש מוצרים:
+
+python
+Copy
+Edit
+def handle_message(self, user_message: str) -> str:
+    # ...
+    if "מוצרים" in user_message:
+        return self.get_products(page=1, per_page=5)
+    # ...
+4.1.2 get_sales_report()
+python
+Copy
+Edit
+def get_sales_report(self, period: str = "week") -> str:
+    try:
+        endpoint = f"reports/sales?period={period}"
+        response = self.wcapi.get(endpoint)
+        if response.status_code == 200:
+            data = response.json()
+            total_sales = data.get("total_sales")
+            total_orders = data.get("total_orders")
+            avg_sales = data.get("average_sales")
+
+            return (
+                f"דוח מכירות ל-{period}:\n"
+                f"• סה״כ מכירות: {total_sales} ₪\n"
+                f"• סה״כ הזמנות: {total_orders}\n"
+                f"• ממוצע מכירות: {avg_sales} ₪"
+            )
+        else:
+            return f"שגיאה בשליפת דוח מכירות: {response.status_code} {response.text}"
+    except Exception as e:
+        return f"שגיאה ב-get_sales_report: {str(e)}"
+ואז:
+
+python
+Copy
+Edit
+def handle_message(self, user_message: str) -> str:
+    if "דוח מכירות" in user_message or "מכירות" in user_message:
+        return self.get_sales_report(period="week")
+    # ...
+וכך הלאה.
+
+4.2 מימוש פונקציות כתיבה בסוכן הפעולות (ActionAgent)
+4.2.1 create_product(product_data)
+python
+Copy
+Edit
+# action_agent.py
+def create_product(self, product_data: dict) -> str:
+    """
+    product_data עשוי לכלול: {"name": "XXX", "regular_price": "100", "stock_status": "instock", ...}
+    """
+    try:
+        response = self.wcapi.post("products", product_data)
+        if response.status_code in [200, 201]:
+            prod = response.json()
+            return f'נוצר מוצר חדש בשם: {prod.get("name")} (ID: {prod.get("id")})'
+        else:
+            return f"שגיאה ביצירת מוצר: {response.status_code} {response.text}"
+    except Exception as e:
+        return f"שגיאה ב-create_product: {str(e)}"
+ואז:
+
+python
+Copy
+Edit
+def handle_message(self, user_message: str) -> str:
+    if "הוסף מוצר" in user_message:
+        # לדוגמה נחלץ שם ומחיר ברמת MVP, כאן נניח שהמשתמש אמר: "הוסף מוצר חדש בשם חולצה במחיר 70"
+        # פתרון ראשוני (Regex/פירוק טקסט):
+        product_data = {
+            "name": "חולצה חדשה",
+            "regular_price": "70",
+            "type": "simple",
+            "stock_status": "instock"
+        }
+        return self.create_product(product_data)
+    # ...
+אותו עיקרון אפשר להעתיק ליצירת קופונים, עדכון מחיר מוצר, מחיקת מוצר וכו’.
+
+4.3 הרחבת ה-Orchestrator לזיהוי כוונה מורכב יותר (אופציונלי)
+כעת, ב–orchestrator.py, אפשר לשפר את ההיגיון של handle_user_message:
+
+python
+Copy
+Edit
+def handle_user_message(self, user_message: str) -> str:
+    message_lower = user_message.lower()
+
+    # מידע
+    if any(word in message_lower for word in ["מוצרים", "דוח", "מכירות"]):
+        return self.info_agent.handle_message(user_message)
+
+    # פעולות
+    if any(word in message_lower for word in ["הוסף", "צור קופון", "ערוך מוצר"]):
+        return self.action_agent.handle_message(user_message)
+
+    # מחקר
+    if any(word in message_lower for word in ["מתחרים", "מחקר"]):
+        return self.research_agent.handle_message(user_message)
+
+    # אחרת
+    return "לא ברור מה תרצה לעשות. שאל על מידע בחנות, או בקש פעולה."
+או אפשר להכניס מנגנון Regex/חלצים פרמטרים. בהמשך אפשר גם לחבר LLM כדי לנתח משפט מורכב.
+
+4.4 בדיקה מחודשת ב–main.py
+python
+Copy
+Edit
+# main.py
+def main():
+    orchestrator = Orchestrator()
+
+    test_messages = [
+        "תראה לי את המוצרים",
+        "דוח מכירות",
+        "הוסף מוצר חדש בשם נעליים במחיר 200",
+        "צור קופון של 10 אחוז"
+    ]
+
+    for msg in test_messages:
+        print(f"\nUser: {msg}")
+        answer = orchestrator.handle_user_message(msg)
+        print(f"Bot: {answer}")
+כעת, אם הגדרת בחשבון הוורדפרס (URL, KEY, SECRET) מערכת WooCommerce פעילה, ותריץ, אתה אמור לראות שמנסים לשלוף מוצרים או ליצור מוצר. ייתכן שתראה תשובות כמו “שגיאה 401” אם המפתחות לא נכונים, או “שגיאה 404” אם Endpoints לא זמינים.
+
+4.5 המלצות לשלב זה
+בדוק חיבור אמיתי: ודא שהמפתחות של WooCommerce באמת עובדים. נסה להוסיף מוצר ולראות שמופיע בחנות.
+שפר את מפענח הטקסט: אם המשתמש כותב “אני רוצה מוצר בשם X ב-50 ש”ח”, כדאי לנתח באמצעות Regex או LLM, וליצור product_data דינמי.
+תרגום שגיאות באופן ברור: אם wcapi.post(...) נכשל, החזר למשתמש טקסט ידידותי (“הפרמטרים חסרים?”, “חסר מחיר?” וכו’).
+מה השגנו
+אחרי שלב 4, הסוכנים באמת מבצעים “קריאות” מול WooCommerce, מחזירים תוצאות אמיתיות (מוצרים, דוחות) או יוצרים פריטים (מוצרים, קופונים). זה מייצר ערך אמיתי למשתמש.
+
+בשלב הבא (שלב 5) אפשר לחבר ממשק (בוט טלגרם או FastAPI), או להוסיף כלי NLP משוכלל. אבל כבר יש לנו לוגיקה אמיתית שמתחברת לחנות.
+
+סיכום – שלב 4
+הוספת לוגיקה אמיתית לסוכני מידע ופעולות, עם קריאות API ל־WooCommerce.
+עדכון Orchestrator שיפנה לפונקציות החדשות.
+בדיקה: הרצה ב־main.py, וידוא שהשגיאות / התוצאות יוצאות תקינות.
+לאחר שתשלים את השלב הזה ותוודא שהסוכן רץ מול WooCommerce שלך, אפשר להתקדם הלאה לחיבור בוט טלגרם, הוספת NLP משוכלל, קירוב הסוכן ל-LLM, ועוד. בהצלחה!
+
+
+
+
