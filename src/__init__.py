@@ -1,3 +1,3 @@
 """
-Package initialization for the E-commerce Store Manager.
+Package initialization for the ecom_store_manager project.
 """ 

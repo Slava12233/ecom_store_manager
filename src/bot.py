@@ -6,6 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from core.config import settings
 from orchestrator import Orchestrator
 from utils.logger import logger, log_action, setup_logger
+from utils.message_manager import MessageManager
 import re
 import os
 import aiohttp
@@ -21,6 +22,7 @@ class Bot:
     def __init__(self):
         """Initialize bot with required components."""
         self.action_agent = ActionAgent()
+        self.message_manager = MessageManager()
         
         # יצירת תיקיית תמונות זמניות אם לא קיימת
         if not os.path.exists(TEMP_IMAGES_DIR):
@@ -31,7 +33,8 @@ class Bot:
         """Send a message when the command /start is issued."""
         user = update.effective_user
         logger.info(f"User {user.id} performed start_command with params: username={user.username}, first_name={user.first_name}")
-        await update.message.reply_text(
+        
+        welcome_message = (
             f"שלום {user.first_name}! 👋\n"
             "אני כאן כדי לעזור לך לנהל את חנות ה-WooCommerce שלך.\n"
             "אתה יכול לשלוח לי הודעות טקסט עם בקשות כמו:\n"
@@ -41,23 +44,17 @@ class Bot:
             "• ועוד...\n\n"
             "אתה יכול גם לשלוח לי תמונה כדי לעדכן תמונת מוצר."
         )
+        
+        await update.message.reply_text(welcome_message)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /help is issued."""
-        await update.message.reply_text(
-            "הנה מה שאני יכול לעזור לך איתו:\n\n"
-            "1. ניהול מוצרים:\n"
-            "   • הוספת מוצר חדש\n"
-            "   • עדכון מחירים\n"
-            "   • עדכון מלאי\n"
-            "   • עדכון תמונות\n\n"
-            "2. ניהול קופונים:\n"
-            "   • יצירת קופונים חדשים\n"
-            "   • הגדרת הנחות\n\n"
-            "3. עדכון תמונות:\n"
-            "   • שלח לי תמונה ואציין לאיזה מוצר לשייך אותה\n\n"
-            "פשוט שלח לי הודעת טקסט עם הבקשה שלך!"
-        )
+        # קבלת קטגוריה ספציפית אם צוינה
+        args = context.args
+        category = args[0] if args else None
+        
+        help_message = self.message_manager.get_help_message(category)
+        await update.message.reply_text(help_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""
@@ -80,10 +77,8 @@ class Bot:
             # בדיקת הרשאות WordPress
             has_permissions = await self.action_agent._check_wp_permissions()
             if not has_permissions:
-                await update.message.reply_text(
-                    "שגיאה: אין הרשאות מתאימות ב-WordPress.\n"
-                    "אנא ודא שהמשתמש הוא מנהל או עורך ושהסיסמה תקינה."
-                )
+                error_message = self.message_manager.get_error_message('permission_denied')
+                await update.message.reply_text(error_message)
                 return ConversationHandler.END
             
             photo_file = await update.message.photo[-1].get_file()
@@ -96,7 +91,8 @@ class Bot:
             # בדיקת הרשאות כתיבה
             if not os.access(TEMP_IMAGES_DIR, os.W_OK):
                 logger.error(f"אין הרשאות כתיבה לתיקייה: {TEMP_IMAGES_DIR}")
-                await update.message.reply_text("שגיאה: אין הרשאות כתיבה לתיקיית התמונות הזמניות")
+                error_message = self.message_manager.get_error_message('permission_denied')
+                await update.message.reply_text(error_message)
                 return ConversationHandler.END
             
             # יצירת שם קובץ ייחודי עם תאריך ושעה
@@ -114,7 +110,8 @@ class Bot:
                 logger.info(f"התמונה הורדה בהצלחה ל: {local_path}")
             except Exception as e:
                 logger.error(f"שגיאה בהורדת התמונה: {str(e)}")
-                await update.message.reply_text("שגיאה בהורדת התמונה. אנא נסה שוב.")
+                error_message = self.message_manager.get_error_message('general_error')
+                await update.message.reply_text(error_message)
                 return ConversationHandler.END
             
             # שמירת הנתיב בקונטקסט
@@ -133,7 +130,8 @@ class Bot:
             
         except Exception as e:
             logger.error(f"שגיאה כללית בטיפול בתמונה: {str(e)}")
-            await update.message.reply_text("שגיאה בטיפול בתמונה. אנא נסה שוב.")
+            error_message = self.message_manager.get_error_message('general_error')
+            await update.message.reply_text(error_message)
             return ConversationHandler.END
 
     async def handle_product_name(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -144,7 +142,8 @@ class Bot:
             local_path = context.user_data.get('temp_image_path')
             
             if not local_path or not os.path.exists(local_path):
-                await update.message.reply_text("מצטער, אך התמונה לא נשמרה כראוי. אנא נסה שוב.")
+                error_message = self.message_manager.get_error_message('not_found', item='תמונה')
+                await update.message.reply_text(error_message)
                 return ConversationHandler.END
             
             logger.info(f"User {user.id} performed photo_assigned with params: product_name={product_name}, local_path={local_path}, username={user.username}")
@@ -155,7 +154,8 @@ class Bot:
                 await update.message.reply_text(result)
             except Exception as e:
                 logger.error(f"שגיאה בעדכון תמונת המוצר: {str(e)}")
-                await update.message.reply_text(f"שגיאה בעדכון תמונת המוצר: {str(e)}")
+                error_message = self.message_manager.get_error_message('general_error')
+                await update.message.reply_text(error_message)
             
             # ניקוי הקובץ הזמני
             try:
@@ -168,7 +168,8 @@ class Bot:
             
         except Exception as e:
             logger.error(f"שגיאה כללית בטיפול בשם המוצר: {str(e)}")
-            await update.message.reply_text("שגיאה בטיפול בבקשה. אנא נסה שוב.")
+            error_message = self.message_manager.get_error_message('general_error')
+            await update.message.reply_text(error_message)
             return ConversationHandler.END
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
