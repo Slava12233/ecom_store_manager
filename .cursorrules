@@ -88,6 +88,75 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Lessons
 
+## סיכום בדיקות ותיקונים - 15/02/2024
+
+### בעיות שזוהו ותוקנו
+1. טיפול בסוגי נתונים:
+   - [X] טיפול ב-SecretStr בקונפיגורציה
+   - [X] המרת URL למחרוזת
+   - [X] טיפול במזהים שמגיעים כ-dict
+
+2. אבטחה ואימות:
+   - [X] טיפול באזהרות HTTPS לא מאומתות
+   - [X] הגדרת verify=False בסביבת פיתוח
+   - [X] תיעוד והערות לגבי אימות בפרודקשן
+
+3. שיפורי קוד:
+   - [X] הוספת לוגים מפורטים
+   - [X] שיפור הטיפול בשגיאות
+   - [X] ניקוי קוד מיותר
+
+### שינויים בקבצים
+1. `src/agents/action_agent.py`:
+   - עדכון __init__ לטיפול נכון ב-SecretStr
+   - הוספת לוגים לדיבוג
+   - שיפור הטיפול בשגיאות
+   - המרה מפורשת של URL למחרוזת
+
+2. `tests/conftest.py`:
+   - הוספת fixture להשבתת אזהרות HTTPS
+   - הגדרת scope="session" לביצועים טובים יותר
+   - תיעוד ברור של המטרה והשימוש
+
+3. `src/core/config.py`:
+   - שימוש ב-SecretStr לנתונים רגישים
+   - הגדרות ברורות לסביבות שונות
+
+### לקחים ומסקנות
+1. טיפול בסוגי נתונים:
+   - תמיד לוודא המרה מפורשת של נתונים (str, int)
+   - לטפל במקרים של dict כשמצפים למספר
+   - להשתמש ב-SecretStr לנתונים רגישים
+
+2. אבטחה:
+   - בסביבת פיתוח: ניתן להשתמש ב-verify=False
+   - בפרודקשן: חובה להשתמש באימות תעודות
+   - תמיד לתעד החלטות אבטחה
+
+3. בדיקות:
+   - להשתמש ב-fixtures לקוד משותף
+   - לארגן בדיקות בצורה היררכית
+   - להוסיף לוגים מפורטים לדיבוג
+
+4. ניהול קוד:
+   - לשמור על תיעוד מעודכן
+   - להשתמש בהערות ברורות
+   - לנקות קוד לא נחוץ
+
+### משימות להמשך
+[ ] הוספת אימות תעודות בסביבת פרודקשן
+[ ] שיפור מערכת הלוגים
+[ ] הוספת בדיקות נוספות
+[ ] שיפור הטיפול בשגיאות
+[ ] תיעוד API מפורט
+
+## מצב נוכחי של הפרויקט
+[X] תשתית בסיסית
+[X] ניהול תצורה
+[X] טיפול בשגיאות בסיסי
+[X] מערכת בדיקות ראשונית
+[ ] מוכנות לפרודקשן
+
 ## Environment Setup
 - Python 3.11 works best with our dependencies (FastAPI 0.95.2, Pydantic 1.10.7)
 - When importing from src directory, either remove 'src.' prefix or ensure __init__.py exists
@@ -106,75 +175,194 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 ## Project Progress
 [X] Initial project setup
-- Created basic directory structure
-- Set up virtual environment with Python 3.11
-- Installed all required dependencies
-- Verified server runs successfully
-
 [X] Core Configuration
-- Implemented full configuration in core/config.py
-- Set up environment variables
-- Added proper error handling for missing configs
-
 [X] Agent Development
 [X] Information Agent
-- Product listing
-- Order management
-- Sales reports
-
-[X] Action Agent
-- Product creation/update
-- Image management
-- Coupon generation
-
+[X] Action Agent - Basic Operations
 [X] Research Agent
-- Market research
-- Competitor analysis
-
 [X] Telegram Integration
-- Bot setup
-- Basic commands
-- Image handling
-- Conversation flow
-
-[X] WooCommerce Integration
-[X] API setup
-[X] Product management
+[X] WooCommerce Integration - Basic
 [X] Media handling
-[ ] Advanced order handling
-[ ] Inventory management
+
+[ ] Advanced Order Management
+  - אישור/דחייה הזמנות
+  - עדכון סטטוס משלוח
+  - הוספת הערות להזמנה
+  - ביטול הזמנות
+  - החזרות וזיכויים
+
+[ ] Customer Management
+  - צפייה ועדכון פרטי לקוח
+  - ניהול הרשאות
+  - היסטוריית רכישות
+  - מועדון לקוחות ונקודות
+
+[ ] Advanced Inventory Management
+  - ניהול מחסנים מרובים
+  - העברות בין מחסנים
+  - ספירות מלאי
+  - התראות אוטומטיות
+  - ניהול הזמנות ספקים
+
+[ ] Marketing Management
+  - מבצעים מורכבים
+  - מבצעים מוגבלי זמן
+  - קופונים מותנים
+  - ניהול קמפיינים
+  - אינטגרציה עם רשתות חברתיות
+
+[ ] Reports & Analytics
+  - דוחות מכירות מפורטים
+  - ניתוח התנהגות לקוחות
+  - דוחות רווחיות
+  - תחזיות מכירה
+  - ניתוח מגמות
+
+[ ] Content Management
+  - עריכת דפי מוצר מתקדמת
+  - ניהול SEO
+  - ניהול בלוג/מאמרים
+  - ניהול דפי נחיתה
+  - התאמה אישית של תבניות
+
+[ ] Shipping Management
+  - הגדרת אזורי משלוח
+  - מחירי משלוח דיפרנציאליים
+  - אינטגרציה עם חברות שליחויות
+  - מעקב אחר משלוחים
+  - הדפסת תוויות משלוח
+
+[ ] Payment Management
+  - ניהול שערי מטבע
+  - ניהול שיטות תשלום
+  - טיפול בהחזרים
+  - פיצול תשלומים
+  - דוחות כספיים
+
+[ ] Testing & Quality Assurance
+  - בדיקות יחידה לכל הפונקציונליות
+  - בדיקות אינטגרציה
+  - בדיקות קצה לקצה
+  - בדיקות עומסים
+  - בדיקות אבטחה
 
 # Scratchpad
 
-## Current Task: שיפור מערכת העלאת תמונות
-[X] תיקון בעיות הרשאה
-  - וידוא פורמט Application Password
-  - שיפור בדיקת הרשאות
-  - הוספת לוגים מפורטים
+## Current Task: פיתוח מערכת ניהול משלוחים ותשלומים
 
-[X] שיפור טיפול בתמונות
-  - אופטימיזציה לפני העלאה
-  - ניקוי קבצים זמניים
-  - טיפול בשגיאות
+### שלב 1: ניהול משלוחים ✓
+[X] הגדרת אזורי משלוח:
+  - create_shipping_zone - יצירת אזור משלוח חדש
+  - update_shipping_zone - עדכון אזור משלוח
+  - delete_shipping_zone - מחיקת אזור משלוח
+  - get_shipping_zones - קבלת רשימת אזורי משלוח
 
-[X] שיפור חווית משתמש
-  - הודעות ברורות יותר
-  - פידבק על התקדמות
-  - טיפול במקרי קצה
+[X] הגדרת שיטות משלוח:
+  - add_shipping_method - הוספת שיטת משלוח לאזור
+  - update_shipping_method - עדכון שיטת משלוח
+  - delete_shipping_method - מחיקת שיטת משלוח
+  - set_shipping_price - הגדרת מחיר משלוח
 
-## Next Steps
-[ ] שיפורים נוספים
-  - הוספת תמיכה בגלריות תמונות
-  - שיפור ביצועים בהעלאת תמונות
-  - הוספת אפשרות לעריכת תמונות
+[X] אינטגרציה עם חברות שליחויות:
+  - integrate_shipping_company - חיבור לחברת שליחויות
+  - get_shipping_quote - קבלת הצעת מחיר למשלוח
+  - create_shipping_label - יצירת תווית משלוח
+  - track_shipment - מעקב אחר משלוח
 
-[ ] פיתוח יכולות נוספות
-  - ניהול מלאי מתקדם
-  - דוחות מכירות
-  - אינטגרציה עם מערכות נוספות
+### שלב 2: ניהול לקוחות ✓
+[X] ניהול פרטי לקוח:
+  - create_customer - יצירת לקוח חדש
+  - update_customer - עדכון פרטי לקוח
+  - delete_customer - מחיקת לקוח
+  - get_customer_details - קבלת פרטי לקוח
+
+[X] היסטוריית הזמנות:
+  - get_customer_orders - קבלת היסטוריית הזמנות
+  - get_order_details - קבלת פרטי הזמנה ספציפית
+
+[X] מועדון לקוחות:
+  - manage_customer_points - ניהול נקודות מועדון
+  - add_customer_note - הוספת הערות ללקוח
+  - get_customer_points - קבלת מצב נקודות
+
+[X] ניהול הרשאות:
+  - manage_customer_role - ניהול תפקידים
+  - get_customer_roles - קבלת הרשאות נוכחיות
+
+### שלב 3: ניהול תשלומים ✓
+[X] שיטות תשלום:
+  - add_payment_method - הוספת שיטת תשלום
+  - update_payment_method - עדכון שיטת תשלום
+  - delete_payment_method - מחיקת שיטת תשלום
+  - get_payment_methods - קבלת רשימת שיטות תשלום
+
+[X] ניהול עסקאות:
+  - process_payment - עיבוד תשלום
+  - refund_payment - ביצוע החזר כספי
+  - split_payment - פיצול תשלום
+  - get_transaction_history - קבלת היסטוריית עסקאות
+
+[X] ניהול מטבעות:
+  - add_currency - הוספת מטבע
+  - update_exchange_rate - עדכון שער חליפין
+  - get_currency_rates - קבלת שערי מטבעות
+
+### שלב 4: הרחבת ממשק המשתמש ✓
+[X] פקודות ניהול משלוחים:
+  - הגדרת אזור משלוח חדש
+  - עדכון מחירי משלוח
+  - הדפסת תווית משלוח
+  - מעקב אחר משלוח
+
+[X] פקודות ניהול תשלומים:
+  - הוספת שיטת תשלום
+  - עדכון שערי מטבע
+  - צפייה בהיסטוריית עסקאות
+  - ביצוע החזר כספי
+
+### שלב 5: בדיקות ותיעוד
+[X] בדיקות:
+  - בדיקות יחידה למודול משלוחים
+  - בדיקות יחידה למודול תשלומים
+  - בדיקות אינטגרציה
+  - בדיקות קצה לקצה
+
+[ ] תיעוד:
+  - תיעוד API
+  - מדריך למשתמש
+  - הוראות התקנה
 
 ## Notes
-- המערכת עובדת כעת בהצלחה עם WordPress
-- נדרש לשמור על הפרדה בין API של WordPress ו-WooCommerce
-- חשוב לשמור על לוגים מפורטים לדיבוג
-- לשקול הוספת מערכת קאשינג לשיפור ביצועים
+- לוודא תאימות עם חברות שליחויות נפוצות בישראל
+- לוודא עמידה בתקני אבטחה לעיבוד תשלומים
+- לשמור על גמישות במערכת לתמיכה בשיטות תשלום עתידיות
+- לתעד היטב את תהליכי האינטגרציה
+
+## תובנות חדשות - 20/03/2024
+
+### טיפול בקוד אסינכרוני
+- [X] וידוא שימוש ב-async/await בכל השרשרת
+- [X] טיפול נכון בפונקציות אסינכרוניות בבוט
+- [X] הבנת ההבדל בין קוד סינכרוני ואסינכרוני בבדיקות
+
+### ניהול בדיקות
+- [X] ניקוי אוטומטי של נתוני בדיקה (מוצרי TEST)
+- [X] שימוש ב-fixtures לקוד משותף
+- [X] הפרדה בין סביבת בדיקות לסביבת ייצור
+
+### שיפורים בזיהוי פקודות
+- [X] תמיכה במגוון פורמטים בעברית
+- [X] שיפור הביטויים הרגולריים לזיהוי פקודות
+- [X] טיפול במקרי קצה ושגיאות
+
+### לוגים ודיבוג
+- [X] הוספת לוגים מפורטים לכל פעולה
+- [X] שמירת לוגים נפרדים לשגיאות
+- [X] תיעוד פעולות משתמש
+
+### שיפורי קוד
+- [X] שימוש ב-SecretStr לנתונים רגישים
+- [X] טיפול נכון בהמרות טיפוסי נתונים
+- [X] ניקוי קוד כפול ומיותר
+
+// ... existing code ...
