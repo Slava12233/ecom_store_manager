@@ -812,188 +812,88 @@ class ActionAgent:
                 }
         return None
 
-    async def handle_message(self, user_message: str) -> str:
+    async def handle_message(self, method: str, params: Dict[str, Any]) -> str:
         """
-        טיפול בהודעות משתמש
+        טיפול בהודעה מה-Orchestrator
+        :param method: שם המתודה לביצוע
+        :param params: פרמטרים לביצוע המתודה
+        :return: תשובה מפורמטת
         """
         try:
-            # פקודות ניהול משלוחים
-            shipping_zone_info = self._extract_shipping_zone_command(user_message)
-            if shipping_zone_info:
-                if shipping_zone_info["action"] == "add":
-                    zone_data = {k: v for k, v in shipping_zone_info.items() if k not in ["action"]}
-                    return self.create_shipping_zone(zone_data)
-                else:  # update
-                    zone_id = shipping_zone_info.pop("zone_id")
-                    shipping_zone_info.pop("action")
-                    return self.update_shipping_zone(zone_id, shipping_zone_info)
-            
-            shipping_label_info = self._extract_shipping_label_command(user_message)
-            if shipping_label_info:
-                return self.create_shipping_label(**shipping_label_info)
-            
-            tracking_info = self._extract_tracking_command(user_message)
-            if tracking_info:
-                return self.track_shipment(**tracking_info)
-            
-            # פקודות ניהול תשלומים
-            payment_command = self._extract_payment_command(user_message)
-            if payment_command:
-                if payment_command["action"] == "history":
-                    return self.get_transaction_history(payment_command["filters"])
-                elif payment_command["action"] == "update_rate":
-                    return self.update_exchange_rate(
-                        payment_command["currency"],
-                        payment_command["rate"]
-                    )
-            
-            # ניהול לקוחות
-            customer_info = self._extract_customer_info(user_message)
-            if customer_info:
-                if customer_info["action"] == "create":
-                    return self.create_customer(customer_info)
-                else:  # update
-                    customer_id = customer_info.pop("customer_id")
-                    customer_info.pop("action")
-                    return self.update_customer(customer_id, customer_info)
-            
-            points_info = self._extract_points_info(user_message)
-            if points_info:
-                return self.manage_customer_points(
-                    points_info["customer_id"],
-                    points_info["action"],
-                    points_info["points"],
-                    points_info.get("reason", "")
-                )
-            
-            role_info = self._extract_role_info(user_message)
-            if role_info:
-                return self.manage_customer_role(
-                    role_info["customer_id"],
-                    role_info["role"],
-                    role_info["action"]
-                )
-
-            # ... המשך הטיפול בהודעות הקיימות ...
-
-            # ניהול אזורי משלוח
-            if "אזור משלוח" in user_message.lower():
-                zone_info = self._extract_shipping_zone_info(user_message)
-                if zone_info:
-                    return self.create_shipping_zone(zone_info)
+            # מיפוי בין שמות המתודות לפונקציות
+            method_mapping = {
+                # ניהול מוצרים
+                "create_product": self.create_product,
+                "update_product": self.update_product,
+                "delete_product": self.delete_product,
+                "update_product_price": self.update_product_price,
+                "update_product_stock": self.update_product_stock,
+                "update_product_name": self.update_product_name,
+                "update_product_description": self.update_product_description,
+                "update_product_category": self.update_product_category,
+                "update_product_stock_quantity": self.update_product_stock_quantity,
+                "set_low_stock_threshold": self.set_low_stock_threshold,
                 
-            # ניהול שיטות משלוח
-            if "שיטת משלוח" in user_message.lower():
-                method_info = self._extract_shipping_method_info(user_message)
-                if method_info:
-                    # נניח שאנחנו מוסיפים לאזור ברירת מחדל (1)
-                    return self.add_shipping_method(1, method_info)
+                # ניהול קטגוריות ותכונות
+                "create_category": self.create_category,
+                "delete_category": self.delete_category,
+                "create_global_attribute": self.create_global_attribute,
+                "add_attribute_terms": self.add_attribute_terms,
+                "assign_attribute_to_product": self.assign_attribute_to_product,
+                "create_variations": self.create_variations,
+                
+                # ניהול הזמנות
+                "update_order_status": self.update_order_status,
+                "add_order_note": self.add_order_note,
+                "process_refund": self.process_refund,
+                "approve_order": self.approve_order,
+                "reject_order": self.reject_order,
+                "update_shipping_status": self.update_shipping_status,
+                "cancel_order": self.cancel_order,
+                "process_return": self.process_return,
+                
+                # ניהול לקוחות
+                "create_customer": self.create_customer,
+                "update_customer": self.update_customer,
+                "delete_customer": self.delete_customer,
+                "manage_customer_points": self.manage_customer_points,
+                "add_customer_note": self.add_customer_note,
+                "manage_customer_role": self.manage_customer_role,
+                
+                # ניהול משלוחים
+                "create_shipping_zone": self.create_shipping_zone,
+                "update_shipping_zone": self.update_shipping_zone,
+                "delete_shipping_zone": self.delete_shipping_zone,
+                "add_shipping_method": self.add_shipping_method,
+                "update_shipping_method": self.update_shipping_method,
+                "create_shipping_label": self.create_shipping_label,
+                "track_shipment": self.track_shipment,
+                
+                # ניהול תשלומים
+                "add_payment_method": self.add_payment_method,
+                "process_payment": self.process_payment,
+                "refund_payment": self.refund_payment,
+                
+                # ניהול קופונים
+                "create_coupon": self.create_coupon
+            }
             
-            # ניהול הזמנות
-            if "עדכן סטטוס הזמנה" in user_message.lower():
-                status_data = self._extract_order_status_update_info(user_message)
-                if status_data:
-                    return self.update_order_status(status_data["order_id"], status_data["status"], status_data["note"])
-                else:
-                    return "לא הצלחתי להבין את פרטי העדכון. נא לציין מספר הזמנה וסטטוס, לדוגמה: 'עדכן סטטוס הזמנה 123 לבוטל'"
+            # בדיקה שהמתודה קיימת
+            if method not in method_mapping:
+                return f"סוכן פעולות: לא מצאתי מתודה בשם {method}"
             
-            elif "הוסף הערה להזמנה" in user_message.lower():
-                note_data = self._extract_order_note_info(user_message)
-                if note_data:
-                    return self.add_order_note(note_data["order_id"], note_data["note"], note_data["is_customer_note"])
-                else:
-                    return "לא הצלחתי להבין את פרטי ההערה. נא לציין מספר הזמנה ותוכן ההערה, לדוגמה: 'הוסף הערה להזמנה 123: המשלוח יתעכב'"
+            # קריאה לפונקציה המתאימה עם הפרמטרים
+            func = method_mapping[method]
             
-            elif "בצע החזר" in user_message.lower():
-                refund_data = self._extract_refund_info(user_message)
-                if refund_data:
-                    return self.process_refund(refund_data["order_id"], refund_data["amount"], refund_data["reason"])
-                else:
-                    return "לא הצלחתי להבין את פרטי ההחזר. נא לציין מספר הזמנה וסכום, לדוגמה: 'בצע החזר להזמנה 123 בסך 50 שקל'"
-            
-            # המשך הטיפול בפקודות הקיימות...
-            elif "עדכן כמות מלאי" in user_message.lower():
-                stock_data = self._extract_stock_quantity_info(user_message)
-                if stock_data:
-                    return self.update_product_stock_quantity(stock_data["product_name"], stock_data["quantity"])
-                else:
-                    return "לא הצלחתי להבין את פרטי העדכון. נא לציין שם מוצר וכמות, לדוגמה: 'עדכן כמות מלאי למוצר חולצה ל-10'"
-            
-            elif "הגדר התראת מלאי נמוך" in user_message.lower():
-                threshold_data = self._extract_threshold_info(user_message)
-                if threshold_data:
-                    return self.set_low_stock_threshold(threshold_data["product_name"], threshold_data["threshold"])
-                else:
-                    return "לא הצלחתי להבין את פרטי ההגדרה. נא לציין שם מוצר וסף התראה, לדוגמה: 'הגדר התראת מלאי נמוך למוצר חולצה ל-5'"
-            
-            elif "עדכן גלריה" in user_message.lower():
-                gallery_data = self._extract_gallery_update_info(user_message)
-                if gallery_data:
-                    return self.update_product_gallery(gallery_data["product_name"], gallery_data["image_urls"])
-                else:
-                    return "לא הצלחתי להבין את פרטי העדכון. נא לציין שם מוצר ונתיבי תמונות מופרדים בפסיקים, לדוגמה: 'עדכן גלריה למוצר חולצה: /path1.jpg, /path2.jpg'"
-            
-            # המשך הטיפול בפקודות הקיימות...
-            elif "הוסף מוצר" in user_message.lower():
-                product_data = self._extract_product_info(user_message)
-                if product_data:
-                    return self.create_product(product_data)
-                else:
-                    return "לא הצלחתי להבין את פרטי המוצר. נא לציין שם ומחיר, לדוגמה: 'הוסף מוצר חדש בשם חולצה במחיר 70'"
-            
-            # ניהול תשלומים
-            elif "שיטת תשלום" in user_message.lower():
-                method_info = self._extract_payment_method_info(user_message)
-                if method_info:
-                    return self.add_payment_method(method_info)
-                    
-            elif "בצע תשלום" in user_message.lower() or "עבד תשלום" in user_message.lower():
-                payment_info = self._extract_payment_info(user_message)
-                if payment_info:
-                    return self.process_payment(payment_info.get('order_id'), payment_info)
-
-            # ... המשך הקוד הקיים ...
-
-            # פעולה לא מזוהה
+            # בדיקה אם הפונקציה היא async
+            if asyncio.iscoroutinefunction(func):
+                return await func(**params)
             else:
-                return (
-                    "סוכן הפעולות: אני יכול לעזור עם:\n"
-                    "1. ניהול מוצרים:\n"
-                    "   • הוספת מוצר חדש\n"
-                    "   • עדכון מחירים\n"
-                    "   • עדכון מלאי\n"
-                    "   • עדכון תמונות\n"
-                    "   • עדכון תיאור\n"
-                    "   • עדכון שם\n\n"
-                    "2. ניהול קטגוריות:\n"
-                    "   • יצירת קטגוריה\n"
-                    "   • יצירת תת-קטגוריה\n"
-                    "   • שיוך מוצר לקטגוריה\n\n"
-                    "3. ניהול תמונות:\n"
-                    "   • העלאת תמונה\n"
-                    "   • שיוך תמונה למוצר\n"
-                    "   • עדכון גלריית תמונות\n\n"
-                    "4. ניהול מלאי מתקדם:\n"
-                    "   • עדכון כמות מלאי\n"
-                    "   • הגדרת התראות מלאי נמוך\n"
-                    "   • ניהול הזמנות מראש\n\n"
-                    "5. ניהול קופונים:\n"
-                    "   • יצירת קופון הנחה באחוזים\n"
-                    "   • יצירת קופון הנחה בסכום קבוע\n"
-                    "   • הגבלת קופון למוצרים ספציפיים\n\n"
-                    "6. ניהול תכונות מוצר:\n"
-                    "   • יצירת תכונה גלובלית\n"
-                    "   • הוספת ערכים לתכונה\n"
-                    "   • שיוך תכונה למוצר\n\n"
-                    "7. ניהול מוצרים משתנים:\n"
-                    "   • יצירת מוצר משתנה\n"
-                    "   • הוספת וריאציות\n"
-                    "   • עדכון וריאציות"
-                )
-
+                return func(**params)
+            
         except Exception as e:
-            self.logger.error(f"שגיאה בטיפול בהודעות: {str(e)}")
-            return f"שגיאה בטיפול בהודעות: {str(e)}"
+            self.logger.error(f"שגיאה בביצוע הפעולה: {str(e)}")
+            return f"סוכן פעולות: אירעה שגיאה בביצוע הפעולה: {str(e)}"
 
     def _find_product_id_by_name(self, product_name: str) -> Optional[int]:
         """

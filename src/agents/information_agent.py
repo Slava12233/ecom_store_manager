@@ -520,135 +520,41 @@ class InformationAgent:
                 
         return "\n".join(result)
 
-    def handle_message(self, user_message: str) -> str:
+    async def handle_message(self, method: str, params: Dict[str, Any]) -> str:
         """
-        Handle user messages and route to appropriate method.
+        טיפול בהודעה מה-Orchestrator
+        :param method: שם המתודה לביצוע
+        :param params: פרמטרים לביצוע המתודה
+        :return: תשובה מפורמטת
         """
-        message_lower = user_message.lower()
-        
-        # דוח מלאי
-        if "דוח מלאי" in message_lower or "מצב מלאי" in message_lower:
-            return self.get_stock_report()
-        
-        # היסטוריית מלאי
-        stock_history_match = re.search(r'היסטוריית מלאי (?:למוצר )?(\d+)', message_lower)
-        if stock_history_match:
-            product_id = int(stock_history_match.group(1))
-            return self.get_stock_history(product_id)
-        
-        # עץ קטגוריות
-        if "עץ קטגוריות" in message_lower or "הצג קטגוריות" in message_lower:
-            return self.get_category_tree()
-        
-        # מוצרים בקטגוריה
-        category_products_match = re.search(r'(?:הצג )?מוצרים (?:ב|מ)קטגוריה (\d+)', message_lower)
-        if category_products_match:
-            category_id = int(category_products_match.group(1))
-            return self.get_products_by_category(category_id)
-        
-        # סטטיסטיקות מתקדמות
-        if "סטטיסטיקות" in message_lower or "נתונים מתקדמים" in message_lower:
-            return self.get_advanced_statistics()
-        
-        # מוצרים פופולריים
-        if "מוצרים פופולריים" in message_lower:
-            return "\n".join(self.get_popular_products())
-        
-        # זמני משלוח
-        if "זמני משלוח" in message_lower:
-            return "\n".join(self.get_average_shipping_times())
-        
-        # אחוזי המרה
-        if "אחוזי המרה" in message_lower:
-            return "\n".join(self.get_conversion_rates())
-        
-        # הצגת שיטות תשלום
-        if "הצג שיטות תשלום" in message_lower:
-            response = self.wcapi.get("payment_gateways")
-            if response.status_code == 200:
-                return self.format_payment_methods(response.json())
-            else:
-                return f"שגיאה בקבלת שיטות תשלום: {response.status_code}"
-        
-        # הצגת היסטוריית עסקאות
-        if "הצג היסטוריית עסקאות" in message_lower or "הצג עסקאות" in message_lower:
-            # אפשר להוסיף פרמטרים לסינון לפי תאריך או סטטוס
-            response = self.wcapi.get("payment_transactions")
-            if response.status_code == 200:
-                return self.format_transaction_history(response.json())
-            else:
-                return f"שגיאה בקבלת היסטוריית עסקאות: {response.status_code}"
-        
-        # הצגת אזורי משלוח
-        if "הצג אזורי משלוח" in message_lower:
-            return self.get_shipping_zones()
+        try:
+            # מיפוי בין שמות המתודות לפונקציות
+            method_mapping = {
+                "get_products": self.get_products,
+                "get_orders": self.get_orders,
+                "get_sales_report": self.get_sales_report,
+                "get_coupons": self.get_coupons,
+                "get_order_details": self.get_order_details,
+                "get_recent_orders": self.get_recent_orders,
+                "get_stock_report": self.get_stock_report,
+                "get_stock_history": self.get_stock_history,
+                "get_category_tree": self.get_category_tree,
+                "get_products_by_category": self.get_products_by_category,
+                "get_advanced_statistics": self.get_advanced_statistics,
+                "get_shipping_zones": self.get_shipping_zones,
+                "get_shipping_methods": self.get_shipping_methods
+            }
             
-        # הצגת שיטות משלוח לאזור ספציפי
-        shipping_methods_match = re.search(r'הצג שיטות משלוח לאזור (\d+)', message_lower)
-        if shipping_methods_match:
-            zone_id = int(shipping_methods_match.group(1))
-            return self.get_shipping_methods(zone_id)
-        
-        # הצגת פרטי לקוח
-        customer_id_match = re.search(r'(?:הצג|פרטי)\s+לקוח\s+(\d+)', message_lower)
-        if customer_id_match:
-            customer_id = int(customer_id_match.group(1))
-            response = self.wcapi.get(f"customers/{customer_id}")
-            if response.status_code == 200:
-                return self.format_customer_details(response.json())
-            else:
-                return f"שגיאה בקבלת פרטי לקוח: {response.status_code}"
-        
-        # הצגת היסטוריית הזמנות לקוח
-        orders_match = re.search(r'(?:הצג|היסטוריית)\s+הזמנות\s+(?:ללקוח|של)\s+(\d+)', message_lower)
-        if orders_match:
-            customer_id = int(orders_match.group(1))
-            response = self.wcapi.get("orders", params={"customer": customer_id})
-            if response.status_code == 200:
-                return self.format_customer_orders(response.json())
-            else:
-                return f"שגיאה בקבלת היסטוריית הזמנות: {response.status_code}"
-        
-        # הצגת פרטי הזמנה ספציפית
-        order_id_match = re.search(r'(?:הצג|פרטי)\s+הזמנה\s+(\d+)', message_lower)
-        if order_id_match:
-            order_id = int(order_id_match.group(1))
-            return self.get_order_details(order_id)
-        
-        # הצגת הזמנות אחרונות עם אפשרות לסינון
-        if "הזמנות" in message_lower:
-            status = None
-            for status_name in ["בהמתנה", "בעיבוד", "הושלם", "בוטל", "הוחזר", "נכשל"]:
-                if status_name in message_lower:
-                    status = status_name
-                    break
-            return self.get_recent_orders(status=status)
-        
-        # Products query
-        if "מוצרים" in message_lower:
-            return self.get_products(page=1, per_page=5)
-        
-        # Sales report query
-        elif "דוח" in message_lower or "מכירות" in message_lower:
-            period = "week"  # Default to weekly
-            if "חודש" in message_lower:
-                period = "month"
-            elif "שנה" in message_lower:
-                period = "year"
-            return self.get_sales_report(period=period)
-        
-        # Coupons query
-        elif "קופונים" in message_lower or "הנחות" in message_lower:
-            return self.get_coupons()
-        
-        # Unknown query
-        else:
-            return "סוכן המידע: אני יכול לעזור עם:\n" + \
-                   "1. הצגת מוצרים ומלאי\n" + \
-                   "2. דוחות מכירות וסטטיסטיקות\n" + \
-                   "3. ניהול הזמנות ולקוחות\n" + \
-                   "4. מידע על משלוחים ותשלומים\n" + \
-                   "5. קטגוריות וקופונים"
+            # בדיקה שהמתודה קיימת
+            if method not in method_mapping:
+                return f"סוכן מידע: לא מצאתי מתודה בשם {method}"
+            
+            # קריאה לפונקציה המתאימה עם הפרמטרים
+            func = method_mapping[method]
+            return func(**params)
+            
+        except Exception as e:
+            return f"סוכן מידע: אירעה שגיאה בביצוע הפעולה: {str(e)}"
 
     def get_stock_report(self) -> str:
         """

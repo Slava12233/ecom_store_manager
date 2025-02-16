@@ -88,63 +88,57 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Lessons
 
-## סיכום בדיקות ותיקונים - 15/02/2024
+## סיכום בדיקות ותיקונים - 16/02/2024
 
 ### בעיות שזוהו ותוקנו
 1. טיפול בסוגי נתונים:
    - [X] טיפול ב-SecretStr בקונפיגורציה
-   - [X] המרת URL למחרוזת
-   - [X] טיפול במזהים שמגיעים כ-dict
+   - [X] המרת טוקן טלגרם למחרוזת רגילה
+   - [X] שימוש ב-get_secret_value() לקבלת ערכים מוצפנים
 
 2. אבטחה ואימות:
-   - [X] טיפול באזהרות HTTPS לא מאומתות
+   - [X] שימוש ב-SecretStr לאחסון מאובטח של טוקנים
    - [X] הגדרת verify=False בסביבת פיתוח
    - [X] תיעוד והערות לגבי אימות בפרודקשן
 
 3. שיפורי קוד:
-   - [X] הוספת לוגים מפורטים
+   - [X] הוספת לוגים מפורטים בעברית
    - [X] שיפור הטיפול בשגיאות
    - [X] ניקוי קוד מיותר
 
 ### שינויים בקבצים
-1. `src/agents/action_agent.py`:
-   - עדכון __init__ לטיפול נכון ב-SecretStr
-   - הוספת לוגים לדיבוג
-   - שיפור הטיפול בשגיאות
-   - המרה מפורשת של URL למחרוזת
+1. `src/bot.py`:
+   - עדכון שימוש בטוקן טלגרם עם get_secret_value()
+   - שיפור מערכת הלוגים
+   - הוספת הודעות שגיאה בעברית
 
-2. `tests/conftest.py`:
-   - הוספת fixture להשבתת אזהרות HTTPS
-   - הגדרת scope="session" לביצועים טובים יותר
-   - תיעוד ברור של המטרה והשימוש
+2. `src/core/config.py`:
+   - הגדרת TELEGRAM_BOT_TOKEN כ-SecretStr
+   - הגדרת משתני סביבה רגישים כ-SecretStr
 
-3. `src/core/config.py`:
-   - שימוש ב-SecretStr לנתונים רגישים
-   - הגדרות ברורות לסביבות שונות
+3. `src/resources/messages/he/messages.yaml`:
+   - הוספת הודעות מערכת בעברית
+   - שיפור פורמט ההודעות
+   - הוספת אימוג'ים להודעות
 
 ### לקחים ומסקנות
 1. טיפול בסוגי נתונים:
-   - תמיד לוודא המרה מפורשת של נתונים (str, int)
-   - לטפל במקרים של dict כשמצפים למספר
-   - להשתמש ב-SecretStr לנתונים רגישים
+   - תמיד להשתמש ב-SecretStr למידע רגיש
+   - לזכור להמיר SecretStr למחרוזת רגילה בעת השימוש
+   - לטפל בהמרות נתונים באופן מפורש
 
 2. אבטחה:
-   - בסביבת פיתוח: ניתן להשתמש ב-verify=False
-   - בפרודקשן: חובה להשתמש באימות תעודות
-   - תמיד לתעד החלטות אבטחה
+   - שימוש ב-SecretStr לאחסון טוקנים
+   - הקפדה על אימות SSL בפרודקשן
+   - תיעוד החלטות אבטחה
 
-3. בדיקות:
-   - להשתמש ב-fixtures לקוד משותף
-   - לארגן בדיקות בצורה היררכית
-   - להוסיף לוגים מפורטים לדיבוג
-
-4. ניהול קוד:
-   - לשמור על תיעוד מעודכן
-   - להשתמש בהערות ברורות
-   - לנקות קוד לא נחוץ
+3. לוגים ושגיאות:
+   - שימוש בלוגים בעברית לנוחות המשתמש
+   - הוספת מידע מפורט בלוגים
+   - טיפול נכון בשגיאות קריטיות
 
 ### משימות להמשך
-[ ] הוספת אימות תעודות בסביבת פרודקשן
+[ ] הוספת אימות SSL בסביבת פרודקשן
 [ ] שיפור מערכת הלוגים
 [ ] הוספת בדיקות נוספות
 [ ] שיפור הטיפול בשגיאות
@@ -155,96 +149,45 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 [X] ניהול תצורה
 [X] טיפול בשגיאות בסיסי
 [X] מערכת בדיקות ראשונית
+[X] בוט טלגרם פעיל
 [ ] מוכנות לפרודקשן
 
 ## Environment Setup
-- Python 3.11 works best with our dependencies (FastAPI 0.95.2, Pydantic 1.10.7)
-- When importing from src directory, either remove 'src.' prefix or ensure __init__.py exists
-- Package names in check_dependencies.py should use pkg_resources instead of importlib for better detection
+- Python 3.11
+- FastAPI 0.95.2
+- Pydantic 1.10.7
+- python-telegram-bot 20.7
+- WooCommerce 3.0.0
 
-## WordPress & WooCommerce Integration
-- WordPress Application Password must be exactly 24 characters long (including spaces)
-- Application Password format: XXXX XXXX XXXX XXXX XXXX XXXX (6 groups of 4 characters)
-- For media uploads, use WordPress API endpoint (/wp-json/wp/v2/media) instead of WooCommerce endpoint
-- Always verify user permissions before attempting media uploads
-- Use Basic Auth with WordPress username and Application Password for media operations
-- Implement proper error handling for 401 (Unauthorized) responses
-- Add detailed logging for debugging authentication issues
-- When uploading images, optimize them first (resize, compress) before sending to WordPress
-- Clean up temporary image files after successful upload
+## Dependencies
+- כל הספריות מוגדרות ב-requirements.txt
+- גרסאות ספציפיות לכל חבילה
+- הגדרת סביבת venv חובה
 
-## Project Progress
-[X] Initial project setup
-[X] Core Configuration
-[X] Agent Development
-[X] Information Agent
-[X] Action Agent - Basic Operations
-[X] Research Agent
-[X] Telegram Integration
-[X] WooCommerce Integration - Basic
-[X] Media handling
+## Security
+- שימוש ב-SecretStr לאחסון מידע רגיש
+- הגדרות SSL לפי סביבה
+- טיפול נכון בטוקנים ומפתחות
 
-[ ] Advanced Order Management
-  - אישור/דחייה הזמנות
-  - עדכון סטטוס משלוח
-  - הוספת הערות להזמנה
-  - ביטול הזמנות
-  - החזרות וזיכויים
+## Logging
+- לוגים בעברית
+- רמות לוג שונות
+- תיעוד שגיאות מפורט
 
-[ ] Customer Management
-  - צפייה ועדכון פרטי לקוח
-  - ניהול הרשאות
-  - היסטוריית רכישות
-  - מועדון לקוחות ונקודות
+## Error Handling
+- הודעות שגיאה ידידותיות למשתמש
+- לוגים מפורטים למפתחים
+- טיפול בשגיאות קריטיות
 
-[ ] Advanced Inventory Management
-  - ניהול מחסנים מרובים
-  - העברות בין מחסנים
-  - ספירות מלאי
-  - התראות אוטומטיות
-  - ניהול הזמנות ספקים
+## Testing
+- בדיקות יחידה
+- בדיקות אינטגרציה
+- בדיקות קצה לקצה
 
-[ ] Marketing Management
-  - מבצעים מורכבים
-  - מבצעים מוגבלי זמן
-  - קופונים מותנים
-  - ניהול קמפיינים
-  - אינטגרציה עם רשתות חברתיות
-
-[ ] Reports & Analytics
-  - דוחות מכירות מפורטים
-  - ניתוח התנהגות לקוחות
-  - דוחות רווחיות
-  - תחזיות מכירה
-  - ניתוח מגמות
-
-[ ] Content Management
-  - עריכת דפי מוצר מתקדמת
-  - ניהול SEO
-  - ניהול בלוג/מאמרים
-  - ניהול דפי נחיתה
-  - התאמה אישית של תבניות
-
-[ ] Shipping Management
-  - הגדרת אזורי משלוח
-  - מחירי משלוח דיפרנציאליים
-  - אינטגרציה עם חברות שליחויות
-  - מעקב אחר משלוחים
-  - הדפסת תוויות משלוח
-
-[ ] Payment Management
-  - ניהול שערי מטבע
-  - ניהול שיטות תשלום
-  - טיפול בהחזרים
-  - פיצול תשלומים
-  - דוחות כספיים
-
-[ ] Testing & Quality Assurance
-  - בדיקות יחידה לכל הפונקציונליות
-  - בדיקות אינטגרציה
-  - בדיקות קצה לקצה
-  - בדיקות עומסים
-  - בדיקות אבטחה
+## Documentation
+- תיעוד בעברית
+- הערות בקוד
+- README מפורט
 
 # Scratchpad
 

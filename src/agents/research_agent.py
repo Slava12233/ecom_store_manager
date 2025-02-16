@@ -55,33 +55,31 @@ class ResearchAgent:
             return "המלצות עסקיות:\n" + "\n".join(f"• {rec}" for rec in recommendations)
         return "אין המלצות זמינות לתחום זה"
 
-    async def handle_message(self, user_message: str) -> str:
+    async def handle_message(self, method: str, params: Dict[str, Any]) -> str:
         """
-        Handle user messages and route to appropriate research method.
+        טיפול בהודעה מה-Orchestrator
+        :param method: שם המתודה לביצוע
+        :param params: פרמטרים לביצוע המתודה
+        :return: תשובה מפורמטת
         """
-        message_lower = user_message.lower()
-        
-        if "מתחרים" in message_lower and "אופנה" in message_lower:
-            return self.analyze_competitors("אופנה")
-        
-        elif "טרנדים" in message_lower or "מגמות" in message_lower:
-            return self.get_market_trends("אופנה")
-        
-        elif "המלצות" in message_lower or "מה כדאי" in message_lower:
-            return self.get_recommendations("אופנה")
-        
-        elif "מחקר" in message_lower or "שוק" in message_lower:
-            return (
-                "מידע על השוק:\n\n" +
-                self.analyze_competitors("אופנה") + "\n\n" +
-                self.get_market_trends("אופנה") + "\n\n" +
-                self.get_recommendations("אופנה")
-            )
-        
-        return "אני יכול לעזור במחקר שוק, ניתוח מתחרים וטרנדים. נסה לשאול על:\n" + \
-               "• מתחרים בתחום\n" + \
-               "• טרנדים נוכחיים\n" + \
-               "• המלצות עסקיות"
+        try:
+            # מיפוי בין שמות המתודות לפונקציות
+            method_mapping = {
+                "analyze_competitors": self.analyze_competitors,
+                "get_market_trends": self.get_market_trends,
+                "get_recommendations": self.get_recommendations
+            }
+            
+            # בדיקה שהמתודה קיימת
+            if method not in method_mapping:
+                return f"סוכן מחקר: לא מצאתי מתודה בשם {method}"
+            
+            # קריאה לפונקציה המתאימה עם הפרמטרים
+            func = method_mapping[method]
+            return func(**params)
+            
+        except Exception as e:
+            return f"סוכן מחקר: אירעה שגיאה בביצוע הפעולה: {str(e)}"
 
     # Future methods to be implemented:
     # def get_price_comparison(self, product_name: str) -> dict: 
