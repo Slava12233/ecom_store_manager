@@ -1,5 +1,8 @@
 """
 LLM API Client - מודול לתקשורת עם מודלים של בינה מלאכותית
+
+מודול זה מספק ממשק לתקשורת עם שירותי LLM שונים (OpenAI, Anthropic וכו')
+ומאפשר ניתוח בקשות בשפה טבעית והמרתן לפקודות מובנות.
 """
 import os
 import json
@@ -13,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 class LLMResponse(BaseModel):
     """מודל לתשובה מובנית מה-LLM"""
-    agent: str
-    method: str
-    params: Dict[str, Any]
+    agent: str  # סוג הסוכן: info/action/research
+    method: str  # שם המתודה לביצוע
+    params: Dict[str, Any]  # פרמטרים לביצוע הפעולה
 
 class LLMClient:
     """לקוח לתקשורת עם שירותי LLM שונים"""
@@ -34,26 +37,68 @@ class LLMClient:
     
     def prepare_prompt(self, user_message: str) -> str:
         """
-        הכנת ה-prompt למודל
+        הכנת ה-prompt למודל עם דוגמאות ספציפיות לפעולות חנות
         :param user_message: הודעת המשתמש
         :return: prompt מוכן לשליחה
         """
-        return f"""
-        נתח את הבקשה הבאה ובחר את הסוכן והפעולה המתאימים.
-        החזר JSON בפורמט הבא:
-        {{
-            "agent": "info/action/research",
-            "method": "שם_המתודה",
-            "params": {{
-                "param1": "value1",
-                ...
-            }}
-        }}
-        
-        הודעת המשתמש: {user_message}
-        
-        החזר רק את ה-JSON ללא טקסט נוסף.
-        """
+        return f"""אתה עוזר לניהול חנות WooCommerce. נתח את בקשת המשתמש ובחר את הסוכן והפעולה המתאימים.
+
+החזר JSON בפורמט הבא:
+{{
+    "agent": "info/action/research",
+    "method": "שם_המתודה",
+    "params": {{
+        "param1": "value1",
+        ...
+    }}
+}}
+
+דוגמאות לפעולות נפוצות:
+
+1. ניהול מוצרים:
+בקשה: "הראה לי את כל המוצרים בחנות"
+תשובה: {{"agent": "info", "method": "get_products", "params": {{"page": 1, "per_page": 10}}}}
+
+בקשה: "צור מוצר חדש בשם חולצה כחולה במחיר 99.90"
+תשובה: {{"agent": "action", "method": "create_product", "params": {{"name": "חולצה כחולה", "price": "99.90"}}}}
+
+בקשה: "עדכן את המחיר של חולצה כחולה ל-89.90"
+תשובה: {{"agent": "action", "method": "update_product_price", "params": {{"product_name": "חולצה כחולה", "price": "89.90"}}}}
+
+2. ניהול משלוחים:
+בקשה: "הוסף אזור משלוח חדש למרכז הארץ"
+תשובה: {{"agent": "action", "method": "create_shipping_zone", "params": {{"name": "מרכז הארץ", "regions": ["תל אביב", "רמת גן", "גבעתיים"]}}}}
+
+בקשה: "הוסף שליח עד הבית לאזור המרכז במחיר 25 שקל"
+תשובה: {{"agent": "action", "method": "add_shipping_method", "params": {{"zone_id": 1, "method_type": "local_pickup", "title": "שליח עד הבית", "cost": 25}}}}
+
+בקשה: "מה סטטוס המשלוח של הזמנה 123?"
+תשובה: {{"agent": "info", "method": "get_shipping_tracking", "params": {{"order_id": 123}}}}
+
+3. ניהול תשלומים:
+בקשה: "הוסף אפשרות תשלום בביט"
+תשובה: {{"agent": "action", "method": "add_payment_method", "params": {{"title": "ביט", "description": "תשלום באמצעות אפליקציית ביט", "enabled": true}}}}
+
+בקשה: "בצע החזר כספי להזמנה 456 על סך 150 שקל"
+תשובה: {{"agent": "action", "method": "refund_payment", "params": {{"order_id": 456, "amount": 150, "reason": "בקשת לקוח"}}}}
+
+4. ניהול לקוחות:
+בקשה: "הוסף 100 נקודות למועדון ללקוח דני כהן"
+תשובה: {{"agent": "action", "method": "manage_customer_points", "params": {{"customer_id": 789, "action": "add", "points": 100, "reason": "מבצע חודשי"}}}}
+
+בקשה: "הראה לי את ההיסטוריה של הלקוח משה לוי"
+תשובה: {{"agent": "info", "method": "get_customer_orders", "params": {{"customer_id": 321, "page": 1, "per_page": 10}}}}
+
+5. מחקר שוק:
+בקשה: "בדוק מחירים של חולצות כחולות אצל המתחרים"
+תשובה: {{"agent": "research", "method": "analyze_competitors", "params": {{"market_segment": "אופנה", "product_type": "חולצות", "color": "כחול"}}}}
+
+בקשה: "מה הטרנדים החמים באופנה החודש?"
+תשובה: {{"agent": "research", "method": "get_market_trends", "params": {{"market_segment": "אופנה", "period": "month"}}}}
+
+הודעת המשתמש: {user_message}
+
+החזר רק את ה-JSON ללא טקסט נוסף."""
     
     def query(self, prompt: str) -> LLMResponse:
         """

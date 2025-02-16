@@ -520,6 +520,129 @@ class InformationAgent:
                 
         return "\n".join(result)
 
+    def get_payment_methods(self) -> str:
+        """
+        קבלת רשימת שיטות תשלום זמינות
+        
+        Returns:
+            str: רשימת שיטות התשלום המוגדרות
+        """
+        try:
+            response = self.wcapi.get("payment_gateways")
+            if response.status_code != 200:
+                return f"שגיאה בקבלת שיטות תשלום: {response.status_code}"
+            
+            gateways = response.json()
+            if not gateways:
+                return "לא נמצאו שיטות תשלום מוגדרות"
+            
+            result = ["שיטות תשלום זמינות:"]
+            for gateway in gateways:
+                title = gateway.get("title", "")
+                enabled = "✅ פעיל" if gateway.get("enabled", False) else "❌ לא פעיל"
+                description = gateway.get("description", "")
+                
+                result.append(f"- {title} ({enabled})")
+                if description:
+                    result.append(f"  תיאור: {description}")
+            
+            return "\n".join(result)
+        except Exception as e:
+            return f"שגיאה בקבלת שיטות תשלום: {str(e)}"
+
+    def get_shipping_methods_by_zone(self, zone_id: int) -> str:
+        """
+        קבלת רשימת שיטות משלוח לאזור ספציפי
+        
+        Args:
+            zone_id: מזהה אזור המשלוח
+            
+        Returns:
+            str: רשימת שיטות המשלוח באזור
+        """
+        try:
+            # קבלת פרטי האזור
+            zone_response = self.wcapi.get(f"shipping/zones/{zone_id}")
+            if zone_response.status_code != 200:
+                return f"שגיאה בקבלת פרטי אזור משלוח: {zone_response.status_code}"
+            
+            zone = zone_response.json()
+            zone_name = zone.get("name", "")
+            
+            # קבלת שיטות המשלוח
+            methods_response = self.wcapi.get(f"shipping/zones/{zone_id}/methods")
+            if methods_response.status_code != 200:
+                return f"שגיאה בקבלת שיטות משלוח: {methods_response.status_code}"
+            
+            methods = methods_response.json()
+            if not methods:
+                return f"לא נמצאו שיטות משלוח באזור {zone_name}"
+            
+            result = [f"שיטות משלוח באזור {zone_name} (#{zone_id}):"]
+            for method in methods:
+                title = method.get("title", "")
+                method_id = method.get("method_id", "")
+                enabled = "✅ פעיל" if method.get("enabled", True) else "❌ לא פעיל"
+                settings = method.get("settings", {})
+                cost = settings.get("cost", {}).get("value", "0")
+                
+                result.append(f"- {title} ({enabled})")
+                result.append(f"  סוג: {method_id}")
+                result.append(f"  מחיר: {cost} ₪")
+            
+            return "\n".join(result)
+        except Exception as e:
+            return f"שגיאה בקבלת שיטות משלוח: {str(e)}"
+
+    def get_shipping_tracking(self, order_id: int) -> str:
+        """
+        קבלת מידע על מעקב משלוח להזמנה
+        
+        Args:
+            order_id: מזהה ההזמנה
+            
+        Returns:
+            str: פרטי מעקב המשלוח
+        """
+        try:
+            response = self.wcapi.get(f"orders/{order_id}")
+            if response.status_code != 200:
+                return f"שגיאה בקבלת פרטי הזמנה: {response.status_code}"
+            
+            order = response.json()
+            tracking_info = order.get("shipping_lines", [{}])[0].get("tracking", {})
+            
+            if not tracking_info:
+                return f"לא נמצא מידע על מעקב משלוח להזמנה #{order_id}"
+            
+            result = [f"פרטי מעקב משלוח להזמנה #{order_id}:"]
+            
+            tracking_number = tracking_info.get("number", "")
+            if tracking_number:
+                result.append(f"מספר מעקב: {tracking_number}")
+            
+            carrier = tracking_info.get("carrier", "")
+            if carrier:
+                result.append(f"חברת שילוח: {carrier}")
+            
+            status = tracking_info.get("status", "")
+            if status:
+                status_hebrew = {
+                    "pending": "ממתין",
+                    "shipped": "נשלח",
+                    "delivered": "נמסר",
+                    "failed": "נכשל"
+                }.get(status, status)
+                result.append(f"סטטוס: {status_hebrew}")
+            
+            last_update = tracking_info.get("last_update", "")
+            if last_update:
+                result.append(f"עדכון אחרון: {last_update.split('T')[0]}")
+            
+            return "\n".join(result)
+        except Exception as e:
+            return f"שגיאה בקבלת מידע על מעקב משלוח: {str(e)}"
+
     async def handle_message(self, method: str, params: Dict[str, Any]) -> str:
         """
         טיפול בהודעה מה-Orchestrator
@@ -542,7 +665,10 @@ class InformationAgent:
                 "get_products_by_category": self.get_products_by_category,
                 "get_advanced_statistics": self.get_advanced_statistics,
                 "get_shipping_zones": self.get_shipping_zones,
-                "get_shipping_methods": self.get_shipping_methods
+                "get_shipping_methods": self.get_shipping_methods,
+                "get_payment_methods": self.get_payment_methods,
+                "get_shipping_methods_by_zone": self.get_shipping_methods_by_zone,
+                "get_shipping_tracking": self.get_shipping_tracking
             }
             
             # בדיקה שהמתודה קיימת

@@ -18,6 +18,7 @@ from datetime import datetime
 from io import BytesIO
 from PIL import Image
 from woocommerce import API
+import inspect
 
 # הוספת נתיב הפרויקט ל-PYTHONPATH
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,34 +30,18 @@ from src.utils.logger import setup_logger, logger
 
 class ActionAgent:
     def __init__(self):
-        """
-        אתחול סוכן הפעולות עם הגדרות WooCommerce
-        """
-        try:
-            # המרת הסיסמה למחרוזת רגילה אם היא מסוג SecretStr
-            consumer_secret = settings.WC_CONSUMER_SECRET
-            if hasattr(consumer_secret, 'get_secret_value'):
-                consumer_secret = consumer_secret.get_secret_value()
-
-            # לוג של פרטי ההתחברות (רק בסביבת פיתוח!)
-            if settings.DEBUG:
-                print(f"DEBUG - WC_STORE_URL: {settings.WC_STORE_URL}")
-                print(f"DEBUG - WC_CONSUMER_KEY: {settings.WC_CONSUMER_KEY}")
-                print(f"DEBUG - WC_CONSUMER_SECRET: {consumer_secret[:5]}...")
-
-            self.wcapi = API(
-                url=str(settings.WC_STORE_URL),  # המרה מפורשת למחרוזת
-                consumer_key=settings.WC_CONSUMER_KEY,
-                consumer_secret=consumer_secret,
-                version="wc/v3",
-                verify=False,  # בסביבת פיתוח ובדיקות בלבד
-                timeout=30
-            )
-            self.logger = setup_logger('action_agent')
-            self.logger.info("ActionAgent אותחל בהצלחה")
-        except Exception as e:
-            print(f"שגיאה באתחול ActionAgent: {str(e)}")
-            raise
+        """Initialize the action agent with WooCommerce API connection."""
+        self.wcapi = API(
+            url=str(settings.active_store_url),
+            consumer_key=settings.active_consumer_key,
+            consumer_secret=settings.active_consumer_secret.get_secret_value(),
+            version="wc/v3",
+            verify=not settings.is_sandbox  # Disable SSL verification for Sandbox
+        )
+        self.logger = logging.getLogger(__name__)
+        
+        # הוספת לוג לזיהוי הסביבה
+        self.logger.info(f"ActionAgent initialized in {settings.ENVIRONMENT} environment")
 
     def _get_auth_header(self) -> Dict[str, str]:
         """Get WooCommerce authentication header."""
@@ -851,8 +836,8 @@ class ActionAgent:
                 "update_shipping_status": self.update_shipping_status,
                 "cancel_order": self.cancel_order,
                 "process_return": self.process_return,
-                
-                # ניהול לקוחות
+            
+            # ניהול לקוחות
                 "create_customer": self.create_customer,
                 "update_customer": self.update_customer,
                 "delete_customer": self.delete_customer,
@@ -886,11 +871,10 @@ class ActionAgent:
             func = method_mapping[method]
             
             # בדיקה אם הפונקציה היא async
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 return await func(**params)
-            else:
-                return func(**params)
-            
+            return func(**params)
+
         except Exception as e:
             self.logger.error(f"שגיאה בביצוע הפעולה: {str(e)}")
             return f"סוכן פעולות: אירעה שגיאה בביצוע הפעולה: {str(e)}"
@@ -1866,81 +1850,63 @@ class ActionAgent:
             self.logger.error(f"שגיאה במחיקת לקוח: {str(e)}")
             return f"שגיאה במחיקת לקוח: {str(e)}"
 
-    def create_shipping_zone(self, zone_data: Dict[str, Any]) -> str:
+    def create_shipping_zone(self, name: str, regions: List[str]) -> str:
         """
         יצירת אזור משלוח חדש
         
         Args:
-            zone_data: מילון עם פרטי אזור המשלוח (שם, מדינות, מחוזות וכו')
+            name: שם האזור
+            regions: רשימת אזורים (מדינות/מחוזות)
             
         Returns:
-            str: הודעת אישור או שגיאה
+            str: הודעת אישור
         """
         try:
-            response = self.wcapi.post("shipping/zones", zone_data)
-            if response.status_code == 201:
-                return f"אזור המשלוח {zone_data.get('name')} נוצר בהצלחה"
-            else:
+            data = {
+                "name": name,
+                "order": 0,
+                "locations": [{"code": region, "type": "state"} for region in regions]
+            }
+            
+            response = self.wcapi.post("shipping/zones", data)
+            if response.status_code != 201:
                 return f"שגיאה ביצירת אזור משלוח: {response.status_code}"
+            
+            zone = response.json()
+            return f"נוצר אזור משלוח חדש: {zone.get('name', '')} (#{zone.get('id', '')})"
+            
         except Exception as e:
             return f"שגיאה ביצירת אזור משלוח: {str(e)}"
 
-    def update_shipping_zone(self, zone_id: int, update_data: Dict[str, Any]) -> str:
+    def add_shipping_method(self, zone_id: int, method_type: str, title: str, cost: float) -> str:
         """
-        עדכון אזור משלוח קיים
+        הוספת שיטת משלוח לאזור
         
         Args:
-            zone_id: מזהה אזור המשלוח
-            update_data: מילון עם הפרטים לעדכון
+            zone_id: מזהה האזור
+            method_type: סוג שיטת המשלוח (flat_rate/free_shipping/local_pickup)
+            title: כותרת שיטת המשלוח
+            cost: עלות המשלוח
             
         Returns:
-            str: הודעת אישור או שגיאה
+            str: הודעת אישור
         """
         try:
-            response = self.wcapi.put(f"shipping/zones/{zone_id}", update_data)
-            if response.status_code == 200:
-                return f"אזור המשלוח עודכן בהצלחה"
-            else:
-                return f"שגיאה בעדכון אזור משלוח: {response.status_code}"
-        except Exception as e:
-            return f"שגיאה בעדכון אזור משלוח: {str(e)}"
-
-    def delete_shipping_zone(self, zone_id: int) -> str:
-        """
-        מחיקת אזור משלוח
-        
-        Args:
-            zone_id: מזהה אזור המשלוח למחיקה
+            data = {
+                "method_id": method_type,
+                "title": title,
+                "settings": {
+                    "cost": str(cost)
+                }
+            }
             
-        Returns:
-            str: הודעת אישור או שגיאה
-        """
-        try:
-            response = self.wcapi.delete(f"shipping/zones/{zone_id}", params={"force": True})
-            if response.status_code == 200:
-                return "אזור המשלוח נמחק בהצלחה"
-            else:
-                return f"שגיאה במחיקת אזור משלוח: {response.status_code}"
-        except Exception as e:
-            return f"שגיאה במחיקת אזור משלוח: {str(e)}"
-
-    def add_shipping_method(self, zone_id: int, method_data: Dict[str, Any]) -> str:
-        """
-        הוספת שיטת משלוח לאזור משלוח
-        
-        Args:
-            zone_id: מזהה אזור המשלוח
-            method_data: מילון עם פרטי שיטת המשלוח
-            
-        Returns:
-            str: הודעת אישור או שגיאה
-        """
-        try:
-            response = self.wcapi.post(f"shipping/zones/{zone_id}/methods", method_data)
-            if response.status_code == 201:
-                return f"שיטת המשלוח {method_data.get('title')} נוספה בהצלחה"
-            else:
+            response = self.wcapi.post(f"shipping/zones/{zone_id}/methods", data)
+            if response.status_code != 201:
                 return f"שגיאה בהוספת שיטת משלוח: {response.status_code}"
+            
+            method = response.json()
+            return f"נוספה שיטת משלוח חדשה: {method.get('title', '')} לאזור #{zone_id}"
+            
         except Exception as e:
             return f"שגיאה בהוספת שיטת משלוח: {str(e)}"
 
@@ -1949,83 +1915,140 @@ class ActionAgent:
         עדכון שיטת משלוח קיימת
         
         Args:
-            zone_id: מזהה אזור המשלוח
+            zone_id: מזהה האזור
             method_id: מזהה שיטת המשלוח
-            update_data: מילון עם הפרטים לעדכון
+            update_data: נתונים לעדכון
             
         Returns:
-            str: הודעת אישור או שגיאה
+            str: הודעת אישור
         """
         try:
             response = self.wcapi.put(f"shipping/zones/{zone_id}/methods/{method_id}", update_data)
-            if response.status_code == 200:
-                return "שיטת המשלוח עודכנה בהצלחה"
-            else:
+            if response.status_code != 200:
                 return f"שגיאה בעדכון שיטת משלוח: {response.status_code}"
+            
+            method = response.json()
+            return f"עודכנה שיטת משלוח: {method.get('title', '')}"
+            
         except Exception as e:
             return f"שגיאה בעדכון שיטת משלוח: {str(e)}"
 
-    def _extract_shipping_zone_info(self, message: str) -> Optional[Dict[str, Any]]:
+    def update_shipping_tracking(self, order_id: int, tracking_number: str, carrier: str) -> str:
         """
-        חילוץ פרטי אזור משלוח מהודעת המשתמש
+        עדכון פרטי מעקב משלוח להזמנה
         
         Args:
-            message: הודעת המשתמש
+            order_id: מזהה ההזמנה
+            tracking_number: מספר מעקב
+            carrier: חברת השילוח
             
         Returns:
-            Optional[Dict[str, Any]]: מילון עם פרטי אזור המשלוח או None אם לא נמצאו פרטים
+            str: הודעת אישור
         """
-        # חיפוש פרטי אזור משלוח בפורמט: שם=X, מדינות=Y,Z, מחוזות=A,B
-        zone_match = re.search(
-            r'(?:הגדר|צור|הוסף)\s+אזור\s+משלוח(?:\s+חדש)?:\s*'
-            r'(?:שם=([^,]+))?,?\s*'
-            r'(?:מדינות=([^,]+))?,?\s*'
-            r'(?:מחוזות=([^,]+))?',
-            message,
-            re.IGNORECASE
-        )
-        
-        if zone_match:
-            zone_data = {}
-            if zone_match.group(1):
-                zone_data['name'] = zone_match.group(1).strip()
-            if zone_match.group(2):
-                zone_data['countries'] = [c.strip() for c in zone_match.group(2).split(',')]
-            if zone_match.group(3):
-                zone_data['states'] = [s.strip() for s in zone_match.group(3).split(',')]
-            return zone_data
-        return None
+        try:
+            # קבלת פרטי ההזמנה הנוכחיים
+            order_response = self.wcapi.get(f"orders/{order_id}")
+            if order_response.status_code != 200:
+                return f"שגיאה בקבלת פרטי הזמנה: {order_response.status_code}"
+            
+            order = order_response.json()
+            
+            # עדכון פרטי המעקב
+            shipping_lines = order.get("shipping_lines", [])
+            if not shipping_lines:
+                return f"לא נמצאו פרטי משלוח בהזמנה #{order_id}"
+            
+            shipping_lines[0]["tracking"] = {
+                "number": tracking_number,
+                "carrier": carrier,
+                "status": "shipped",
+                "last_update": datetime.now().isoformat()
+            }
+            
+            # עדכון ההזמנה
+            update_data = {
+                "shipping_lines": shipping_lines
+            }
+            
+            response = self.wcapi.put(f"orders/{order_id}", update_data)
+            if response.status_code != 200:
+                return f"שגיאה בעדכון פרטי מעקב: {response.status_code}"
+            
+            return f"עודכנו פרטי מעקב משלוח להזמנה #{order_id}"
+            
+        except Exception as e:
+            return f"שגיאה בעדכון פרטי מעקב משלוח: {str(e)}"
 
-    def _extract_shipping_method_info(self, message: str) -> Optional[Dict[str, Any]]:
+    def add_payment_method(self, method_data: Dict[str, Any]) -> str:
         """
-        חילוץ פרטי שיטת משלוח מהודעת המשתמש
+        הוספת שיטת תשלום חדשה
         
         Args:
-            message: הודעת המשתמש
+            method_data: נתוני שיטת התשלום
             
         Returns:
-            Optional[Dict[str, Any]]: מילון עם פרטי שיטת המשלוח או None אם לא נמצאו פרטים
+            str: הודעת אישור
         """
-        # חיפוש פרטי שיטת משלוח בפורמט: שם=X, מחיר=Y, סוג=Z
-        method_match = re.search(
-            r'(?:הוסף|הגדר)\s+שיטת\s+משלוח:\s*'
-            r'(?:שם=([^,]+))?,?\s*'
-            r'(?:מחיר=([^,]+))?,?\s*'
-            r'(?:סוג=([^,]+))?',
-            message,
-            re.IGNORECASE
-        )
+        try:
+            response = self.wcapi.post("payment_gateways", method_data)
+            if response.status_code != 201:
+                return f"שגיאה בהוספת שיטת תשלום: {response.status_code}"
+            
+            method = response.json()
+            return f"נוספה שיטת תשלום חדשה: {method.get('title', '')}"
+            
+        except Exception as e:
+            return f"שגיאה בהוספת שיטת תשלום: {str(e)}"
+
+    def update_payment_method(self, gateway_id: str, update_data: Dict[str, Any]) -> str:
+        """
+        עדכון שיטת תשלום קיימת
         
-        if method_match:
-            method_data = {}
-            if method_match.group(1):
-                method_data['title'] = method_match.group(1).strip()
-            if method_match.group(2):
-                method_data['cost'] = float(method_match.group(2).strip())
-            if method_match.group(3):
-                method_data['method_id'] = method_match.group(3).strip()
-            return method_data
-        return None
+        Args:
+            gateway_id: מזהה שיטת התשלום
+            update_data: נתונים לעדכון
+            
+        Returns:
+            str: הודעת אישור
+        """
+        try:
+            response = self.wcapi.put(f"payment_gateways/{gateway_id}", update_data)
+            if response.status_code != 200:
+                return f"שגיאה בעדכון שיטת תשלום: {response.status_code}"
+            
+            method = response.json()
+            return f"עודכנה שיטת תשלום: {method.get('title', '')}"
+            
+        except Exception as e:
+            return f"שגיאה בעדכון שיטת תשלום: {str(e)}"
+
+    def process_refund(self, order_id: int, amount: float, reason: str = "") -> str:
+        """
+        ביצוע החזר כספי
+        
+        Args:
+            order_id: מזהה ההזמנה
+            amount: סכום ההחזר
+            reason: סיבת ההחזר
+            
+        Returns:
+            str: הודעת אישור
+        """
+        try:
+            data = {
+                "amount": str(amount),
+                "reason": reason
+            }
+            
+            response = self.wcapi.post(f"orders/{order_id}/refunds", data)
+            if response.status_code != 201:
+                return f"שגיאה בביצוע החזר כספי: {response.status_code}"
+            
+            refund = response.json()
+            return f"בוצע החזר כספי בסך {refund.get('amount', '')} ₪ להזמנה #{order_id}"
+            
+        except Exception as e:
+            return f"שגיאה בביצוע החזר כספי: {str(e)}"
 
     def approve_order(self, order_id: int, note: str = "") -> str:
         """
